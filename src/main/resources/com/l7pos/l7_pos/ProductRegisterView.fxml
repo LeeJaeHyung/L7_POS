@@ -14,17 +14,44 @@
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.l7pos.l7_pos.controller.ProductRegisterController"
-            prefWidth="1100" prefHeight="650"
+            prefWidth="1150" prefHeight="700"
             styleClass="root-pane">
 
     <top>
-        <HBox styleClass="top-bar" alignment="CENTER_LEFT" spacing="12">
-            <padding>
-                <Insets top="16" right="20" bottom="16" left="20"/>
-            </padding>
-            <Label text="L7 POS" styleClass="logo-label"/>
-            <Label text="상품 등록 / 수정 / 삭제" styleClass="page-title"/>
-        </HBox>
+        <VBox spacing="0">
+            <HBox styleClass="top-bar" alignment="CENTER_LEFT" spacing="12">
+                <padding>
+                    <Insets top="16" right="20" bottom="16" left="20"/>
+                </padding>
+                <Label text="L7 POS" styleClass="logo-label"/>
+                <Label text="상품 관리" styleClass="page-title"/>
+            </HBox>
+
+            <HBox spacing="10" styleClass="search-bar" alignment="CENTER_LEFT">
+                <padding>
+                    <Insets top="14" right="20" bottom="14" left="20"/>
+                </padding>
+
+                <Label text="상품 조회" styleClass="search-label"/>
+
+                <TextField fx:id="searchField"
+                           promptText="상품코드를 입력하세요"
+                           styleClass="search-input"
+                           prefWidth="260"/>
+
+                <Button fx:id="searchButton"
+                        text="조회"
+                        onAction="#onSearch"
+                        styleClass="search-button"
+                        prefHeight="40"/>
+
+                <Button fx:id="resetButton"
+                        text="전체조회"
+                        onAction="#onReset"
+                        styleClass="secondary-button"
+                        prefHeight="40"/>
+            </HBox>
+        </VBox>
     </top>
 
     <center>
@@ -39,7 +66,7 @@
                 </padding>
 
                 <Label text="상품 정보 입력" styleClass="section-title"/>
-                <Label text="신규 등록 또는 목록에서 선택한 상품 수정이 가능합니다." styleClass="section-desc"/>
+                <Label text="신규 등록 또는 목록의 상품 수정이 가능합니다." styleClass="section-desc"/>
 
                 <Separator/>
 
@@ -93,15 +120,15 @@
                 <HBox alignment="CENTER_LEFT">
                     <VBox spacing="4">
                         <Label text="등록 상품 목록" styleClass="section-title"/>
-                        <Label text="행별 수정/삭제 버튼으로 바로 처리할 수 있습니다." styleClass="section-desc"/>
+                        <Label text="조회, 수정, 삭제를 한 화면에서 처리할 수 있습니다." styleClass="section-desc"/>
                     </VBox>
                 </HBox>
 
                 <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="product-table">
                     <columns>
-                        <TableColumn fx:id="idColumn" text="ID" prefWidth="80"/>
-                        <TableColumn fx:id="barcodeColumn" text="상품코드" prefWidth="260"/>
-                        <TableColumn fx:id="priceColumn" text="가격" prefWidth="160"/>
+                        <TableColumn fx:id="idColumn" text="ID" prefWidth="90"/>
+                        <TableColumn fx:id="barcodeColumn" text="상품코드" prefWidth="300"/>
+                        <TableColumn fx:id="priceColumn" text="가격" prefWidth="180"/>
                         <TableColumn fx:id="actionColumn" text="관리" prefWidth="220"/>
                     </columns>
                 </TableView>

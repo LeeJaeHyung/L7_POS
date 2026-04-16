@@ -21,6 +21,48 @@
     -fx-font-weight: bold;
 }
 
+.search-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: transparent transparent #e5e7eb transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.search-label {
+    -fx-text-fill: #111827;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.search-input {
+    -fx-pref-height: 40;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-background-color: #f9fafb;
+    -fx-border-color: #d1d5db;
+    -fx-border-width: 1.2;
+    -fx-font-size: 14px;
+    -fx-padding: 0 12 0 12;
+}
+
+.search-input:focused {
+    -fx-background-color: white;
+    -fx-border-color: #2563eb;
+    -fx-border-width: 1.8;
+}
+
+.search-button {
+    -fx-background-color: #0f766e;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.search-button:hover {
+    -fx-background-color: #115e59;
+}
+
 .card-panel {
     -fx-background-color: white;
     -fx-background-radius: 16;

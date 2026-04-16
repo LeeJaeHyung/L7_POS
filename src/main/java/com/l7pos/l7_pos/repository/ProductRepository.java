@@ -45,6 +45,22 @@ public class ProductRepository {
         }
     }
 
+    public List<Product> searchByProductCode(String keyword) {
+        EntityManager em = JPAUtil.getEntityManager();
+        try {
+            return em.createQuery(
+                            "SELECT p FROM Product p " +
+                                    "WHERE LOWER(p.productCode) LIKE :keyword " +
+                                    "ORDER BY p.id DESC",
+                            Product.class
+                    )
+                    .setParameter("keyword", "%" + keyword.toLowerCase() + "%")
+                    .getResultList();
+        } finally {
+            em.close();
+        }
+    }
+
     public boolean existsByProductCode(String productCode) {
         return findByProductCode(productCode) != null;
     }

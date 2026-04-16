@@ -24,10 +24,19 @@ public class ProductRegisterController {
     private TextField priceField;
 
     @FXML
+    private TextField searchField;
+
+    @FXML
     private Button registerButton;
 
     @FXML
     private Button cancelEditButton;
+
+    @FXML
+    private Button searchButton;
+
+    @FXML
+    private Button resetButton;
 
     @FXML
     private Label messageLabel;
@@ -120,6 +129,7 @@ public class ProductRegisterController {
 
         barcodeField.setOnAction(event -> priceField.requestFocus());
         priceField.setOnAction(event -> onSave());
+        searchField.setOnAction(event -> onSearch());
 
         loadProducts();
         updateFormState();
@@ -177,6 +187,39 @@ public class ProductRegisterController {
             e.printStackTrace();
             showMessage("처리 중 오류가 발생했습니다.", false);
         }
+    }
+
+    @FXML
+    private void onSearch() {
+        String keyword = searchField.getText() == null ? "" : searchField.getText().trim();
+
+        try {
+            if (keyword.isEmpty()) {
+                loadProducts();
+                showMessage("전체 상품 목록을 조회했습니다.", true);
+                return;
+            }
+
+            List<Product> products = productRepository.searchByProductCode(keyword);
+            productList.setAll(products);
+
+            if (products.isEmpty()) {
+                showMessage("조회 결과가 없습니다.", false);
+            } else {
+                showMessage(products.size() + "건 조회되었습니다.", true);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            showMessage("상품 조회 중 오류가 발생했습니다.", false);
+        }
+    }
+
+    @FXML
+    private void onReset() {
+        searchField.clear();
+        loadProducts();
+        clearForm();
+        showMessage("전체 상품 목록으로 초기화되었습니다.", true);
     }
 
     @FXML
@@ -250,12 +293,12 @@ public class ProductRegisterController {
         try {
             Long deleteId = product.getId();
             productRepository.deleteById(deleteId);
-            loadProducts();
 
             if (editingProduct != null && editingProduct.getId().equals(deleteId)) {
                 clearForm();
             }
 
+            loadProducts();
             showMessage("상품이 삭제되었습니다. [ID: " + deleteId + "]", true);
         } catch (Exception e) {
             e.printStackTrace();
@@ -263,10 +306,6 @@ public class ProductRegisterController {
         }
     }
 
-    /**
-     * 전체 바코드에서 컬러/사이즈를 제외한 상품 기준 코드 추출
-     * 예: co2302st17bks -> co2302st17
-     */
     private String extractProductCode(String barcode) {
         if (barcode == null) {
             throw new IllegalArgumentException("바코드를 입력해주세요.");
@@ -303,7 +342,6 @@ public class ProductRegisterController {
 
     private void updateFormState() {
         boolean editMode = editingProduct != null;
-
         registerButton.setText(editMode ? "상품 수정" : "상품 등록");
         cancelEditButton.setVisible(editMode);
         cancelEditButton.setManaged(editMode);
