@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.l7pos.l7_pos.controller.ProductRegisterController"
+            prefWidth="1100" prefHeight="650"
+            styleClass="root-pane">
+
+    <top>
+        <HBox styleClass="top-bar" alignment="CENTER_LEFT" spacing="12">
+            <padding>
+                <Insets top="16" right="20" bottom="16" left="20"/>
+            </padding>
+            <Label text="L7 POS" styleClass="logo-label"/>
+            <Label text="상품 등록 / 수정 / 삭제" styleClass="page-title"/>
+        </HBox>
+    </top>
+
+    <center>
+        <HBox spacing="20" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <VBox spacing="18" styleClass="card-panel" prefWidth="360">
+                <padding>
+                    <Insets top="24" right="24" bottom="24" left="24"/>
+                </padding>
+
+                <Label text="상품 정보 입력" styleClass="section-title"/>
+                <Label text="신규 등록 또는 목록에서 선택한 상품 수정이 가능합니다." styleClass="section-desc"/>
+
+                <Separator/>
+
+                <VBox spacing="8">
+                    <Label text="바코드" styleClass="field-label"/>
+                    <TextField fx:id="barcodeField"
+                               promptText="바코드를 입력 또는 스캔하세요"
+                               styleClass="pos-input"/>
+                </VBox>
+
+                <VBox spacing="8">
+                    <Label text="가격" styleClass="field-label"/>
+                    <TextField fx:id="priceField"
+                               promptText="가격을 입력하세요"
+                               styleClass="pos-input"/>
+                </VBox>
+
+                <HBox spacing="10">
+                    <Button fx:id="registerButton"
+                            text="상품 등록"
+                            onAction="#onSave"
+                            styleClass="primary-button"
+                            prefHeight="46"
+                            maxWidth="1.7976931348623157E308"/>
+                    <HBox.hgrow>
+                        <Priority fx:constant="ALWAYS"/>
+                    </HBox.hgrow>
+
+                    <Button fx:id="cancelEditButton"
+                            text="취소"
+                            onAction="#onCancelEdit"
+                            styleClass="secondary-button"
+                            prefHeight="46"
+                            visible="false"
+                            managed="false"/>
+                </HBox>
+
+                <Label fx:id="messageLabel"
+                       text="대기 중"
+                       styleClass="message-label"/>
+            </VBox>
+
+            <VBox spacing="16" styleClass="card-panel">
+                <padding>
+                    <Insets top="24" right="24" bottom="24" left="24"/>
+                </padding>
+                <HBox.hgrow>
+                    <Priority fx:constant="ALWAYS"/>
+                </HBox.hgrow>
+
+                <HBox alignment="CENTER_LEFT">
+                    <VBox spacing="4">
+                        <Label text="등록 상품 목록" styleClass="section-title"/>
+                        <Label text="행별 수정/삭제 버튼으로 바로 처리할 수 있습니다." styleClass="section-desc"/>
+                    </VBox>
+                </HBox>
+
+                <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="product-table">
+                    <columns>
+                        <TableColumn fx:id="idColumn" text="ID" prefWidth="80"/>
+                        <TableColumn fx:id="barcodeColumn" text="상품코드" prefWidth="260"/>
+                        <TableColumn fx:id="priceColumn" text="가격" prefWidth="160"/>
+                        <TableColumn fx:id="actionColumn" text="관리" prefWidth="220"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </HBox>
+    </center>
+
+</BorderPane>
