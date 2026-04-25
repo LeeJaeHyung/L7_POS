@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.l7pos.l7_pos.controller.SaleController"
+            prefWidth="1000"
+            prefHeight="700">
+
+    <top>
+        <VBox spacing="12" style="-fx-padding: 15;">
+            <Label text="판매 등록"
+                   style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+            <HBox spacing="10">
+                <Label text="판매번호"/>
+                <TextField fx:id="saleNoField"
+                           editable="false"
+                           prefWidth="220"/>
+
+                <Label text="바코드"/>
+                <TextField fx:id="barcodeField"
+                           prefWidth="320"
+                           promptText="바코드를 스캔 후 Enter"/>
+
+                <Region HBox.hgrow="ALWAYS"/>
+
+                <Button text="판매 등록"
+                        onAction="#onRegisterSale"
+                        prefWidth="180"
+                        prefHeight="50"
+                        style="-fx-font-size: 20px;
+                               -fx-font-weight: bold;
+                               -fx-background-color: #2c3e50;
+                               -fx-text-fill: white;"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox style="-fx-padding: 10;">
+            <TableView fx:id="saleTable"
+                       VBox.vgrow="ALWAYS"
+                       maxWidth="Infinity">
+
+                <columns>
+                    <TableColumn fx:id="barcodeColumn" text="바코드"/>
+                    <TableColumn fx:id="productCodeColumn" text="품번"/>
+                    <TableColumn fx:id="productNameColumn" text="상품명"/>
+                    <TableColumn fx:id="colorColumn" text="컬러"/>
+                    <TableColumn fx:id="sizeColumn" text="사이즈"/>
+                    <TableColumn fx:id="priceColumn" text="단가"/>
+                    <TableColumn fx:id="amountColumn" text="금액"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+
+    <bottom>
+        <VBox spacing="12" style="-fx-padding: 15;">
+            <HBox spacing="10">
+                <Button text="선택 품목 삭제"
+                        onAction="#onDeleteSelected"
+                        prefWidth="140"
+                        prefHeight="40"
+                        style="-fx-font-size: 14px;
+                               -fx-font-weight: bold;
+                               -fx-background-color: #e74c3c;
+                               -fx-text-fill: white;"/>
+
+                <Button text="새 판매"
+                        onAction="#onNewSale"
+                        prefWidth="100"
+                        prefHeight="40"/>
+            </HBox>
+
+            <HBox spacing="40">
+                <HBox spacing="10">
+                    <Label text="총 수량"
+                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+
+                    <Label fx:id="totalQuantityLabel"
+                           text="0개"
+                           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+                </HBox>
+
+                <HBox spacing="10">
+                    <Label text="총 금액"
+                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+
+                    <Label fx:id="totalAmountLabel"
+                           text="0원"
+                           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+                </HBox>
+            </HBox>
+        </VBox>
+    </bottom>
+
+</BorderPane>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.l7pos.l7_pos.controller.SaleHistoryController"
+            prefWidth="1100"
+            prefHeight="750">
+
+    <top>
+        <VBox spacing="10" style="-fx-padding: 15;">
+            <Label text="판매 조회 / 수정 / 삭제"
+                   style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+            <HBox spacing="10">
+                <Label text="시작일"/>
+                <DatePicker fx:id="startDatePicker"/>
+
+                <Label text="종료일"/>
+                <DatePicker fx:id="endDatePicker"/>
+
+                <Button text="기간 조회" onAction="#onSearchByDate"/>
+                <Button text="전체 조회" onAction="#onReload"/>
+                <Button text="선택 판매 삭제" onAction="#onDeleteSale"/>
+                <Button text="수정 저장" onAction="#onUpdateSale"/>
+            </HBox>
+
+            <HBox spacing="40">
+                <HBox spacing="10">
+                    <Label text="조회 총 수량"
+                           style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                    <Label fx:id="searchTotalQuantityLabel"
+                           text="0개"
+                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                </HBox>
+
+                <HBox spacing="10">
+                    <Label text="조회 총 금액"
+                           style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                    <Label fx:id="searchTotalAmountLabel"
+                           text="0원"
+                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                </HBox>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <SplitPane orientation="VERTICAL">
+
+            <VBox spacing="8" style="-fx-padding: 10;">
+                <Label text="판매 내역"
+                       style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+                <TableView fx:id="saleTable" prefHeight="280">
+                    <columns>
+                        <TableColumn fx:id="saleNoColumn" text="판매번호" prefWidth="220"/>
+                        <TableColumn fx:id="saleDateColumn" text="판매일자" prefWidth="220"/>
+                        <TableColumn fx:id="totalQuantityColumn" text="총 수량" prefWidth="100"/>
+                        <TableColumn fx:id="totalAmountColumn" text="총 금액" prefWidth="150"/>
+                    </columns>
+                </TableView>
+            </VBox>
+
+            <VBox spacing="8" style="-fx-padding: 10;">
+                <HBox spacing="10">
+                    <Label text="판매 상세"
+                           style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+                    <Label text="바코드"/>
+
+                    <TextField fx:id="barcodeField"
+                               prefWidth="280"
+                               promptText="추가할 바코드를 스캔하세요"/>
+
+                    <Button text="품목 추가" onAction="#onAddItem"/>
+                    <Button text="선택 품목 삭제" onAction="#onDeleteItem"/>
+                </HBox>
+
+                <TableView fx:id="itemTable" prefHeight="300">
+                    <columns>
+                        <TableColumn fx:id="barcodeColumn" text="바코드" prefWidth="190"/>
+                        <TableColumn fx:id="productCodeColumn" text="품번" prefWidth="140"/>
+                        <TableColumn fx:id="productNameColumn" text="표시명" prefWidth="180"/>
+                        <TableColumn fx:id="colorColumn" text="컬러" prefWidth="80"/>
+                        <TableColumn fx:id="sizeColumn" text="사이즈" prefWidth="80"/>
+                        <TableColumn fx:id="priceColumn" text="단가" prefWidth="120"/>
+                        <TableColumn fx:id="amountColumn" text="금액" prefWidth="120"/>
+                    </columns>
+                </TableView>
+
+                <HBox spacing="40">
+                    <HBox spacing="10">
+                        <Label text="상세 수량"
+                               style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                        <Label fx:id="detailQuantityLabel"
+                               text="0개"
+                               style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                    </HBox>
+
+                    <HBox spacing="10">
+                        <Label text="상세 금액"
+                               style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                        <Label fx:id="detailAmountLabel"
+                               text="0원"
+                               style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                    </HBox>
+                </HBox>
+            </VBox>
+
+        </SplitPane>
+    </center>
+
+</BorderPane>
