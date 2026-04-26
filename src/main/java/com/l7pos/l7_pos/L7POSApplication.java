@@ -22,7 +22,13 @@ public class L7POSApplication extends Application {
 
         Parent root = loader.load();
         Scene scene = new Scene(root, 1000, 700);
-
+        stage.getIcons().add(
+                new javafx.scene.image.Image(
+                        Objects.requireNonNull(
+                                getClass().getResourceAsStream("/icon.png")
+                        )
+                )
+        );
         stage.setTitle("L7 POS");
         stage.setScene(scene);
         stage.show();
