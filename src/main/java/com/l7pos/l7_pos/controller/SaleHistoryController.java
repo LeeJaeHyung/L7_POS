@@ -4,7 +4,6 @@ import com.l7pos.l7_pos.dto.SaleRow;
 import com.l7pos.l7_pos.dto.SaleSummaryRow;
 import com.l7pos.l7_pos.entity.Product;
 import com.l7pos.l7_pos.entity.Sale;
-import com.l7pos.l7_pos.entity.SaleItem;
 import com.l7pos.l7_pos.service.SaleService;
 import com.l7pos.l7_pos.util.BarcodeParser;
 import com.l7pos.l7_pos.util.ParsedBarcode;
@@ -16,6 +15,9 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -81,7 +83,7 @@ public class SaleHistoryController {
             saleTable.getSelectionModel()
                     .selectedItemProperty()
                     .addListener((obs, oldValue, newValue) -> {
-                        if (internalSelectionChanging) {
+                        if (internalSelectionChanging || busy) {
                             return;
                         }
 
@@ -216,7 +218,6 @@ public class SaleHistoryController {
         StringBuilder sb = new StringBuilder();
 
         sb.append("const input = $0;\n\n");
-
         sb.append("const barcodes = [\n");
 
         for (String barcode : barcodes) {
@@ -285,6 +286,7 @@ run();
             saleRows.setAll(task.getValue());
             itemRows.clear();
             saleTable.getSelectionModel().clearSelection();
+            itemTable.getSelectionModel().clearSelection();
             internalSelectionChanging = false;
 
             updateSearchSummary();
@@ -328,6 +330,7 @@ run();
             saleRows.setAll(task.getValue());
             itemRows.clear();
             saleTable.getSelectionModel().clearSelection();
+            itemTable.getSelectionModel().clearSelection();
             internalSelectionChanging = false;
 
             updateSearchSummary();
@@ -429,6 +432,10 @@ run();
 
                 Product product = saleService.findProductByCode(parsed.productCode());
 
+                if (product == null) {
+                    throw new IllegalArgumentException("등록되지 않은 상품코드입니다: " + parsed.productCode());
+                }
+
                 String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
 
                 return new SaleRow(
@@ -483,6 +490,9 @@ run();
             }
 
             itemRows.remove(selectedItem);
+            itemTable.getSelectionModel().clearSelection();
+            itemTable.refresh();
+
             updateDetailSummary();
 
             if (barcodeField != null) {
@@ -589,12 +599,23 @@ run();
         task.setOnSucceeded(event -> {
             setBusy(false);
 
-            showInfo("삭제 완료", "판매 내역이 삭제되었습니다.");
+            saleRows.removeIf(row ->
+                    row != null &&
+                            row.getSaleNo() != null &&
+                            row.getSaleNo().equals(saleNo)
+            );
 
             itemRows.clear();
+
+            saleTable.getSelectionModel().clearSelection();
+            itemTable.getSelectionModel().clearSelection();
+            saleTable.refresh();
+            itemTable.refresh();
+
+            updateSearchSummary();
             updateDetailSummary();
 
-            reloadCurrentSearchAsync(null);
+            showInfo("삭제 완료", "판매 내역이 삭제되었습니다.");
         });
 
         task.setOnFailed(event -> {
@@ -619,11 +640,14 @@ run();
     private void setBusy(boolean busy) {
         this.busy = busy;
 
-        if (startDatePicker != null) startDatePicker.setDisable(busy);
-        if (endDatePicker != null) endDatePicker.setDisable(busy);
-        if (saleTable != null) saleTable.setDisable(busy);
-        if (itemTable != null) itemTable.setDisable(busy);
-        if (barcodeField != null) barcodeField.setDisable(busy);
+        /*
+         * 중요:
+         * Alert/Dialog가 뜨거나 TableView 셀 이벤트 처리 중일 때
+         * DatePicker, TableView, TextField를 disable 하면 macOS/JavaFX에서
+         * 검은 화면 또는 UI가 사라지는 것처럼 보이는 현상이 생길 수 있다.
+         *
+         * 그래서 여기서는 상태 플래그만 변경하고 실제 컨트롤은 비활성화하지 않는다.
+         */
     }
 
     private void startDaemonTask(Task<?> task) {
@@ -708,30 +732,111 @@ run();
     }
 
     private boolean confirm(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
+        Dialog<ButtonType> dialog = createBaseDialog(title);
 
-        Optional<ButtonType> result = alert.showAndWait();
+        Label titleLabel = new Label(title == null ? "확인" : title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "" : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        if (cancelButton != null) {
+            cancelButton.setText("취소");
+        }
+
+        Optional<ButtonType> result = dialog.showAndWait();
 
         return result.isPresent() && result.get() == ButtonType.OK;
     }
 
     private void showWarning(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message == null ? "알 수 없는 오류가 발생했습니다." : message);
-        alert.showAndWait();
+        Dialog<ButtonType> dialog = createBaseDialog(title);
+
+        Label titleLabel = new Label(title == null ? "알림" : title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "알 수 없는 오류가 발생했습니다." : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        dialog.showAndWait();
     }
 
     private void showInfo(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message == null ? "" : message);
-        alert.showAndWait();
+        Dialog<ButtonType> dialog = createBaseDialog(title);
+
+        Label titleLabel = new Label(title == null ? "알림" : title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "" : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        dialog.showAndWait();
+    }
+
+    private Dialog<ButtonType> createBaseDialog(String title) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+
+        dialog.setTitle(title == null ? "알림" : title);
+        dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+        dialog.setResizable(false);
+
+        Window owner = getOwnerWindow();
+
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+
+        return dialog;
+    }
+
+    private Window getOwnerWindow() {
+        if (saleTable != null && saleTable.getScene() != null) {
+            return saleTable.getScene().getWindow();
+        }
+
+        if (itemTable != null && itemTable.getScene() != null) {
+            return itemTable.getScene().getWindow();
+        }
+
+        if (barcodeField != null && barcodeField.getScene() != null) {
+            return barcodeField.getScene().getWindow();
+        }
+
+        return null;
     }
 
     private record CopyBarcodeResult(String script, int count) {

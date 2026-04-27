@@ -10,6 +10,9 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -201,7 +204,7 @@ public class ProductRegisterController {
 
         runSafely("초기화 실패", () -> {
             searchField.clear();
-            clearForm();
+            clearForm(false);
             loadProductsAsync("전체 상품 목록으로 초기화되었습니다.");
         });
     }
@@ -213,7 +216,7 @@ public class ProductRegisterController {
         }
 
         runSafely("수정 취소 실패", () -> {
-            clearForm();
+            clearForm(true);
             showMessage("수정 모드가 취소되었습니다.", true);
         });
     }
@@ -222,9 +225,9 @@ public class ProductRegisterController {
         setBusy(true);
         showMessage("상품 등록 중입니다...", true);
 
-        Task<Void> task = new Task<>() {
+        Task<Product> task = new Task<>() {
             @Override
-            protected Void call() {
+            protected Product call() {
                 if (productRepository.existsByProductCode(productCode)) {
                     throw new IllegalArgumentException("이미 등록된 상품코드입니다.");
                 }
@@ -232,14 +235,24 @@ public class ProductRegisterController {
                 Product product = new Product(productCode, price);
                 productRepository.save(product);
 
-                return null;
+                return productRepository.findByProductCode(productCode);
             }
         };
 
         task.setOnSucceeded(event -> {
             setBusy(false);
-            clearForm();
-            loadProductsAsync("상품이 등록되었습니다. [상품코드: " + productCode + "]");
+
+            Product savedProduct = task.getValue();
+
+            if (savedProduct != null) {
+                productList.add(0, savedProduct);
+            } else {
+                Product fallbackProduct = new Product(productCode, price);
+                productList.add(0, fallbackProduct);
+            }
+
+            clearForm(true);
+            showMessage("상품이 등록되었습니다. [상품코드: " + productCode + "]", true);
         });
 
         task.setOnFailed(event -> {
@@ -262,7 +275,7 @@ public class ProductRegisterController {
             return;
         }
 
-        if (!editingProduct.getProductCode().equals(productCode)) {
+        if (!editingProduct.getProductCode().equalsIgnoreCase(productCode)) {
             barcodeField.setText(editingProduct.getProductCode());
             barcodeField.requestFocus();
             barcodeField.selectAll();
@@ -285,8 +298,20 @@ public class ProductRegisterController {
 
         task.setOnSucceeded(event -> {
             setBusy(false);
-            clearForm();
-            loadProductsAsync("상품이 수정되었습니다. [ID: " + editingId + "]");
+
+            for (Product item : productList) {
+                if (item != null && item.getId() != null && item.getId().equals(editingId)) {
+                    item.setPrice(price);
+                    break;
+                }
+            }
+
+            if (productTable != null) {
+                productTable.refresh();
+            }
+
+            clearForm(true);
+            showMessage("상품이 수정되었습니다. [ID: " + editingId + "]", true);
         });
 
         task.setOnFailed(event -> {
@@ -303,23 +328,74 @@ public class ProductRegisterController {
         }
 
         runSafely("상품 삭제 실패", () -> {
-            if (product == null) {
+            if (product == null || product.getId() == null) {
                 throw new IllegalArgumentException("삭제할 상품이 없습니다.");
             }
 
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("상품 삭제");
-            alert.setHeaderText("선택한 상품을 삭제하시겠습니까?");
-            alert.setContentText("ID: " + product.getId() + " / 상품코드: " + product.getProductCode());
+            boolean confirmed = showDeleteConfirmDialog(product);
 
-            Optional<ButtonType> result = alert.showAndWait();
-
-            if (result.isEmpty() || result.get() != ButtonType.OK) {
+            if (!confirmed) {
                 return;
             }
 
             deleteProductAsync(product);
         });
+    }
+
+    private boolean showDeleteConfirmDialog(Product product) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("상품 삭제");
+
+        Window owner = getOwnerWindow();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+
+        dialog.initModality(Modality.WINDOW_MODAL);
+        dialog.setResizable(false);
+
+        Label titleLabel = new Label("선택한 상품을 삭제하시겠습니까?");
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label contentLabel = new Label(
+                "ID: " + product.getId() + "\n상품코드: " + product.getProductCode()
+        );
+
+        VBox contentBox = new VBox(12, titleLabel, contentLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("삭제");
+        }
+
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        if (cancelButton != null) {
+            cancelButton.setText("취소");
+        }
+
+        Optional<ButtonType> result = dialog.showAndWait();
+
+        return result.isPresent() && result.get() == ButtonType.OK;
+    }
+
+    private Window getOwnerWindow() {
+        if (productTable != null && productTable.getScene() != null) {
+            return productTable.getScene().getWindow();
+        }
+
+        if (barcodeField != null && barcodeField.getScene() != null) {
+            return barcodeField.getScene().getWindow();
+        }
+
+        if (searchField != null && searchField.getScene() != null) {
+            return searchField.getScene().getWindow();
+        }
+
+        return null;
     }
 
     private void deleteProductAsync(Product product) {
@@ -339,11 +415,24 @@ public class ProductRegisterController {
         task.setOnSucceeded(event -> {
             setBusy(false);
 
-            if (editingProduct != null && editingProduct.getId().equals(deleteId)) {
-                clearForm();
+            if (editingProduct != null
+                    && editingProduct.getId() != null
+                    && editingProduct.getId().equals(deleteId)) {
+                clearForm(false);
             }
 
-            loadProductsAsync("상품이 삭제되었습니다. [ID: " + deleteId + "]");
+            productList.removeIf(item ->
+                    item != null
+                            && item.getId() != null
+                            && item.getId().equals(deleteId)
+            );
+
+            if (productTable != null) {
+                productTable.getSelectionModel().clearSelection();
+                productTable.refresh();
+            }
+
+            showMessage("상품이 삭제되었습니다. [ID: " + deleteId + "]", true);
         });
 
         task.setOnFailed(event -> {
@@ -384,7 +473,6 @@ public class ProductRegisterController {
 
         task.setOnFailed(event -> {
             setBusy(false);
-
             handleTaskError("조회 실패", task.getException());
 
             if (searchField != null) {
@@ -429,7 +517,7 @@ public class ProductRegisterController {
             throw new IllegalArgumentException("바코드 형식이 올바르지 않습니다. 최소 10자리 이상이어야 합니다.");
         }
 
-        return normalized.substring(0, 10).toLowerCase();
+        return normalized.substring(0, 10).toUpperCase();
     }
 
     private void loadProductsAsync(String successMessage) {
@@ -456,26 +544,17 @@ public class ProductRegisterController {
             if (successMessage != null && !successMessage.isBlank()) {
                 showMessage(successMessage, true);
             }
-
-            if (barcodeField != null && !barcodeField.isDisabled()) {
-                barcodeField.requestFocus();
-            }
         });
 
         task.setOnFailed(event -> {
             setBusy(false);
-
             handleTaskError("상품 목록 조회 실패", task.getException());
-
-            if (barcodeField != null && !barcodeField.isDisabled()) {
-                barcodeField.requestFocus();
-            }
         });
 
         startDaemonTask(task);
     }
 
-    private void clearForm() {
+    private void clearForm(boolean requestBarcodeFocus) {
         editingProduct = null;
 
         if (barcodeField != null) {
@@ -493,7 +572,7 @@ public class ProductRegisterController {
 
         updateFormState();
 
-        if (barcodeField != null) {
+        if (requestBarcodeFocus && barcodeField != null) {
             barcodeField.requestFocus();
         }
     }
@@ -514,22 +593,35 @@ public class ProductRegisterController {
     private void setBusy(boolean busy) {
         this.busy = busy;
 
-        if (searchButton != null) searchButton.setDisable(busy);
-        if (resetButton != null) resetButton.setDisable(busy);
-        if (registerButton != null) registerButton.setDisable(busy);
-        if (cancelEditButton != null) cancelEditButton.setDisable(busy);
-        if (searchField != null) searchField.setDisable(busy);
-        if (priceField != null) priceField.setDisable(busy);
-
-        if (barcodeField != null) {
-            barcodeField.setDisable(busy || editingProduct != null);
+        if (searchButton != null) {
+            searchButton.setDisable(busy);
         }
 
-        if (productTable != null) {
-            productTable.setDisable(busy);
+        if (resetButton != null) {
+            resetButton.setDisable(busy);
+        }
+
+        if (registerButton != null) {
+            registerButton.setDisable(busy);
+        }
+
+        if (cancelEditButton != null) {
+            cancelEditButton.setDisable(busy);
+        }
+
+        if (barcodeField != null) {
+            barcodeField.setDisable(editingProduct != null);
         }
 
         updateFormState();
+
+        if (registerButton != null) {
+            registerButton.setDisable(busy);
+        }
+
+        if (cancelEditButton != null) {
+            cancelEditButton.setDisable(busy);
+        }
     }
 
     private void startDaemonTask(Task<?> task) {
@@ -566,11 +658,6 @@ public class ProductRegisterController {
         } catch (Exception e) {
             e.printStackTrace();
             showMessage(errorTitle + " - 처리 중 오류가 발생했습니다.\n" + e.getMessage(), false);
-
-        } finally {
-            if (!busy && barcodeField != null && !barcodeField.isDisabled()) {
-                barcodeField.requestFocus();
-            }
         }
     }
 

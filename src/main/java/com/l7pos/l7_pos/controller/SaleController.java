@@ -11,9 +11,13 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.util.Optional;
 
 public class SaleController {
 
@@ -80,6 +84,7 @@ public class SaleController {
 
     private void addBarcodeAsync(String barcode) {
         setBusy(true);
+        showStatus("상품 조회 중입니다...");
 
         Task<SaleRow> task = new Task<>() {
             @Override
@@ -141,6 +146,9 @@ public class SaleController {
             }
 
             saleRows.remove(selected);
+            saleTable.getSelectionModel().clearSelection();
+            saleTable.refresh();
+
             updateSummary();
             clearBarcodeAndFocus();
         });
@@ -171,6 +179,7 @@ public class SaleController {
 
     private void registerSaleAsync(String saleNo, ObservableList<SaleRow> snapshot) {
         setBusy(true);
+        showStatus("판매 등록 중입니다...");
 
         Task<String> task = new Task<>() {
             @Override
@@ -228,6 +237,8 @@ public class SaleController {
     private void resetSale() {
         saleRows.clear();
         saleNoField.setText(saleService.createSaleNo());
+        saleTable.getSelectionModel().clearSelection();
+        saleTable.refresh();
         updateSummary();
     }
 
@@ -255,13 +266,16 @@ public class SaleController {
     private void setBusy(boolean busy) {
         this.busy = busy;
 
-        if (barcodeField != null) {
-            barcodeField.setDisable(busy);
-        }
+        /*
+         * 중요:
+         * TextField와 TableView는 disable 하지 않는다.
+         * macOS/JavaFX에서 Alert/Dialog, IME, TableView 이벤트 처리 중
+         * 입력창/테이블을 비활성화하면 화면이 검게 보이거나 UI가 사라진 것처럼 보일 수 있다.
+         */
+    }
 
-        if (saleTable != null) {
-            saleTable.setDisable(busy);
-        }
+    private void showStatus(String message) {
+        System.out.println(message);
     }
 
     private void startDaemonTask(Task<?> task) {
@@ -289,14 +303,33 @@ public class SaleController {
     }
 
     private boolean confirm(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
+        Dialog<ButtonType> dialog = createBaseDialog(title);
 
-        return alert.showAndWait()
-                .filter(buttonType -> buttonType == ButtonType.OK)
-                .isPresent();
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "" : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        if (cancelButton != null) {
+            cancelButton.setText("취소");
+        }
+
+        Optional<ButtonType> result = dialog.showAndWait();
+
+        return result.isPresent() && result.get() == ButtonType.OK;
     }
 
     private void runSafely(String errorTitle, Runnable action) {
@@ -313,18 +346,79 @@ public class SaleController {
     }
 
     private void showWarning(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message == null ? "알 수 없는 오류가 발생했습니다." : message);
-        alert.showAndWait();
+        Dialog<ButtonType> dialog = createBaseDialog(title);
+
+        Label titleLabel = new Label(title == null ? "알림" : title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "알 수 없는 오류가 발생했습니다." : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        dialog.showAndWait();
     }
 
     private void showInfo(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message == null ? "" : message);
-        alert.showAndWait();
+        Dialog<ButtonType> dialog = createBaseDialog(title);
+
+        Label titleLabel = new Label(title == null ? "알림" : title);
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label messageLabel = new Label(message == null ? "" : message);
+        messageLabel.setWrapText(true);
+
+        VBox contentBox = new VBox(12, titleLabel, messageLabel);
+        contentBox.setStyle("-fx-padding: 20;");
+
+        dialog.getDialogPane().setContent(contentBox);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (okButton != null) {
+            okButton.setText("확인");
+        }
+
+        dialog.showAndWait();
+    }
+
+    private Dialog<ButtonType> createBaseDialog(String title) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+
+        dialog.setTitle(title == null ? "알림" : title);
+        dialog.initModality(Modality.WINDOW_MODAL);
+        dialog.setResizable(false);
+
+        Window owner = getOwnerWindow();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+
+        return dialog;
+    }
+
+    private Window getOwnerWindow() {
+        if (saleTable != null && saleTable.getScene() != null) {
+            return saleTable.getScene().getWindow();
+        }
+
+        if (barcodeField != null && barcodeField.getScene() != null) {
+            return barcodeField.getScene().getWindow();
+        }
+
+        if (saleNoField != null && saleNoField.getScene() != null) {
+            return saleNoField.getScene().getWindow();
+        }
+
+        return null;
     }
 }

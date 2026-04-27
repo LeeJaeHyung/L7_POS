@@ -58,12 +58,19 @@ dependencies {
         exclude(group = "org.openjfx")
     }
 
+    // JPA / Hibernate
     implementation("org.hibernate.orm:hibernate-core:6.4.4.Final")
+    implementation("org.hibernate.orm:hibernate-community-dialects:6.4.4.Final")
     implementation("jakarta.persistence:jakarta.persistence-api:3.1.0")
     implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")
     implementation("jakarta.activation:jakarta.activation-api:2.1.3")
     implementation("jakarta.xml.bind:jakarta.xml.bind-api:4.0.2")
-    implementation("com.mysql:mysql-connector-j:8.3.0")
+
+    // SQLite
+    implementation("org.xerial:sqlite-jdbc:3.45.3.0")
+
+    // MySQL 제거
+    // implementation("com.mysql:mysql-connector-j:8.3.0")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
 
