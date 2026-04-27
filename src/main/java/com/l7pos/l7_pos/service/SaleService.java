@@ -229,4 +229,25 @@ public class SaleService {
         return "SALE" + LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
     }
+
+    public List<String> findBarcodesByDateRange(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        EntityManager em = JPAUtil.getEntityManager();
+
+        try {
+            return em.createQuery("""
+                SELECT si.barcode
+                FROM SaleItem si
+                JOIN si.sale s
+                WHERE s.saleDate >= :startDateTime
+                  AND s.saleDate < :endDateTime
+                ORDER BY s.saleDate ASC, si.saleItemId ASC
+                """, String.class)
+                    .setParameter("startDateTime", startDateTime)
+                    .setParameter("endDateTime", endDateTime)
+                    .getResultList();
+
+        } finally {
+            em.close();
+        }
+    }
 }

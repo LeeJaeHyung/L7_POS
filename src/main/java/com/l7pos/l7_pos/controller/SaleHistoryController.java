@@ -13,11 +13,14 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -80,7 +83,6 @@ public class SaleHistoryController {
 
         barcodeField.setOnAction(event -> onAddItem());
 
-        // 온로딩 시 오늘 날짜 기준 조회
         searchSalesByDate(today, today);
 
         updateDetailSummary();
@@ -128,6 +130,83 @@ public class SaleHistoryController {
         }
 
         searchSalesByDate(startDate, endDate);
+    }
+
+    @FXML
+    private void onCopyTodayBarcodeScript() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDateTime = today.atStartOfDay();
+        LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
+
+        try {
+            List<String> barcodes = saleService.findBarcodesByDateRange(startDateTime, endDateTime)
+                    .stream()
+                    .filter(code -> code != null && !code.isBlank())
+                    .map(code -> code.trim().toUpperCase())
+                    .toList();
+
+            if (barcodes.isEmpty()) {
+                showWarning("복사 실패", "오늘 판매된 바코드가 없습니다.");
+                return;
+            }
+
+            String script = generateUbiposConsoleScript(barcodes);
+
+            ClipboardContent content = new ClipboardContent();
+            content.putString(script);
+            Clipboard.getSystemClipboard().setContent(content);
+
+            showInfo("복사 완료", "오늘 판매된 바코드 " + barcodes.size() + "건의 콘솔 스크립트가 복사되었습니다.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showWarning("복사 실패", "오늘 판매 바코드 스크립트 생성 중 오류가 발생했습니다.");
+        }
+    }
+
+    private String generateUbiposConsoleScript(List<String> barcodes) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("const input = $0;\n\n");
+
+        sb.append("const barcodes = [\n");
+
+        for (String barcode : barcodes) {
+            sb.append("  \"")
+                    .append(escapeJavascriptString(barcode))
+                    .append("\",\n");
+        }
+
+        sb.append("];\n\n");
+
+        sb.append("""
+async function run() {
+  for (const code of barcodes) {
+    input.value = code;
+    input.focus();
+
+    window.event = {
+      keyCode: 13,
+      which: 13
+    };
+
+    EventChk2();
+
+    console.log("처리:", code);
+    await new Promise(r => setTimeout(r, 1500));
+  }
+}
+
+run();
+""");
+
+        return sb.toString();
+    }
+
+    private String escapeJavascriptString(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
     }
 
     private void searchSalesByDate(LocalDate startDate, LocalDate endDate) {

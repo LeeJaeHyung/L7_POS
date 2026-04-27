@@ -24,6 +24,7 @@
                 <Button text="전체 조회" onAction="#onReload"/>
                 <Button text="선택 판매 삭제" onAction="#onDeleteSale"/>
                 <Button text="수정 저장" onAction="#onUpdateSale"/>
+                <Button text="오늘 판매 바코드 복사" onAction="#onCopyTodayBarcodeScript"/>
             </HBox>
 
             <HBox spacing="40">
@@ -111,5 +112,4 @@
 
         </SplitPane>
     </center>
-
 </BorderPane>
