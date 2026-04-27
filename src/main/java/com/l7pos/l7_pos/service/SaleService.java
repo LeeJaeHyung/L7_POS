@@ -28,6 +28,7 @@ public class SaleService {
 
         } catch (NoResultException e) {
             throw new IllegalArgumentException("등록되지 않은 상품입니다.\n품번: " + productCode);
+
         } finally {
             em.close();
         }
@@ -68,6 +69,7 @@ public class SaleService {
             if (tx.isActive()) {
                 tx.rollback();
             }
+
             throw e;
 
         } finally {
@@ -151,6 +153,7 @@ public class SaleService {
             if (tx.isActive()) {
                 tx.rollback();
             }
+
             throw e;
 
         } finally {
@@ -214,6 +217,37 @@ public class SaleService {
         }
     }
 
+    public String createSaleNo() {
+        return "SALE" + LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+    }
+
+    public List<String> findBarcodesByDateRange(LocalDateTime startDateTime,
+                                                LocalDateTime endDateTime) {
+        EntityManager em = JPAUtil.getEntityManager();
+
+        try {
+            return em.createQuery("""
+                    SELECT si.barcode
+                    FROM SaleItem si
+                    JOIN si.sale s
+                    WHERE s.saleDate >= :startDateTime
+                      AND s.saleDate < :endDateTime
+                    ORDER BY s.saleDate ASC, si.saleItemId ASC
+                    """, String.class)
+                    .setParameter("startDateTime", startDateTime)
+                    .setParameter("endDateTime", endDateTime)
+                    .getResultList();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return List.of();
+
+        } finally {
+            em.close();
+        }
+    }
+
     private SaleItem toSaleItem(SaleRow row) {
         return new SaleItem(
                 row.getBarcode(),
@@ -223,31 +257,5 @@ public class SaleService {
                 row.getSize(),
                 row.getPrice()
         );
-    }
-
-    public String createSaleNo() {
-        return "SALE" + LocalDateTime.now()
-                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-    }
-
-    public List<String> findBarcodesByDateRange(LocalDateTime startDateTime, LocalDateTime endDateTime) {
-        EntityManager em = JPAUtil.getEntityManager();
-
-        try {
-            return em.createQuery("""
-                SELECT si.barcode
-                FROM SaleItem si
-                JOIN si.sale s
-                WHERE s.saleDate >= :startDateTime
-                  AND s.saleDate < :endDateTime
-                ORDER BY s.saleDate ASC, si.saleItemId ASC
-                """, String.class)
-                    .setParameter("startDateTime", startDateTime)
-                    .setParameter("endDateTime", endDateTime)
-                    .getResultList();
-
-        } finally {
-            em.close();
-        }
     }
 }

@@ -62,30 +62,32 @@ public class SaleHistoryController {
 
     @FXML
     public void initialize() {
-        LocalDate today = LocalDate.now();
+        runSafely("초기화 실패", () -> {
+            LocalDate today = LocalDate.now();
 
-        startDatePicker.setValue(today);
-        endDatePicker.setValue(today);
+            startDatePicker.setValue(today);
+            endDatePicker.setValue(today);
 
-        initSaleTable();
-        initItemTable();
+            initSaleTable();
+            initItemTable();
 
-        saleTable.setItems(saleRows);
-        itemTable.setItems(itemRows);
+            saleTable.setItems(saleRows);
+            itemTable.setItems(itemRows);
 
-        saleTable.getSelectionModel()
-                .selectedItemProperty()
-                .addListener((obs, oldValue, newValue) -> {
-                    if (newValue != null) {
-                        loadSaleItems(newValue.getSaleNo());
-                    }
-                });
+            saleTable.getSelectionModel()
+                    .selectedItemProperty()
+                    .addListener((obs, oldValue, newValue) -> {
+                        if (newValue != null) {
+                            loadSaleItems(newValue.getSaleNo());
+                        }
+                    });
 
-        barcodeField.setOnAction(event -> onAddItem());
+            barcodeField.setOnAction(event -> onAddItem());
 
-        searchSalesByDate(today, today);
+            searchSalesByDate(today, today);
 
-        updateDetailSummary();
+            updateDetailSummary();
+        });
     }
 
     private void initSaleTable() {
@@ -107,46 +109,54 @@ public class SaleHistoryController {
 
     @FXML
     private void onReload() {
-        loadSales();
-        itemRows.clear();
-        updateDetailSummary();
-        updateSearchSummary();
-        barcodeField.clear();
+        runSafely("전체 조회 실패", () -> {
+            loadSales();
+            itemRows.clear();
+            updateDetailSummary();
+            updateSearchSummary();
+            barcodeField.clear();
+        });
     }
 
     @FXML
     private void onSearchByDate() {
-        LocalDate startDate = startDatePicker.getValue();
-        LocalDate endDate = endDatePicker.getValue();
+        runSafely("조회 실패", () -> {
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
 
-        if (startDate == null || endDate == null) {
-            showWarning("조회 실패", "시작일과 종료일을 선택하세요.");
-            return;
-        }
+            if (startDate == null || endDate == null) {
+                throw new IllegalArgumentException("시작일과 종료일을 선택하세요.");
+            }
 
-        if (startDate.isAfter(endDate)) {
-            showWarning("조회 실패", "시작일은 종료일보다 늦을 수 없습니다.");
-            return;
-        }
+            if (startDate.isAfter(endDate)) {
+                throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
+            }
 
-        searchSalesByDate(startDate, endDate);
+            searchSalesByDate(startDate, endDate);
+        });
     }
 
     @FXML
     private void onCopyTodayBarcodeScript() {
-        LocalDate today = LocalDate.now();
-        LocalDateTime startDateTime = today.atStartOfDay();
-        LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
+        runSafely("복사 실패", () -> {
+            LocalDate today = LocalDate.now();
+            LocalDateTime startDateTime = today.atStartOfDay();
+            LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
 
-        try {
-            List<String> barcodes = saleService.findBarcodesByDateRange(startDateTime, endDateTime)
-                    .stream()
+            List<String> result = saleService.findBarcodesByDateRange(startDateTime, endDateTime);
+
+            if (result == null || result.isEmpty()) {
+                showInfo("알림", "오늘 판매된 내역이 없습니다.");
+                return;
+            }
+
+            List<String> barcodes = result.stream()
                     .filter(code -> code != null && !code.isBlank())
                     .map(code -> code.trim().toUpperCase())
                     .toList();
 
             if (barcodes.isEmpty()) {
-                showWarning("복사 실패", "오늘 판매된 바코드가 없습니다.");
+                showInfo("알림", "오늘 판매된 바코드가 없습니다.");
                 return;
             }
 
@@ -154,14 +164,15 @@ public class SaleHistoryController {
 
             ClipboardContent content = new ClipboardContent();
             content.putString(script);
-            Clipboard.getSystemClipboard().setContent(content);
+
+            boolean copied = Clipboard.getSystemClipboard().setContent(content);
+
+            if (!copied) {
+                throw new IllegalArgumentException("클립보드에 복사하지 못했습니다.");
+            }
 
             showInfo("복사 완료", "오늘 판매된 바코드 " + barcodes.size() + "건의 콘솔 스크립트가 복사되었습니다.");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            showWarning("복사 실패", "오늘 판매 바코드 스크립트 생성 중 오류가 발생했습니다.");
-        }
+        });
     }
 
     private String generateUbiposConsoleScript(List<String> barcodes) {
@@ -216,50 +227,38 @@ run();
         saleRows.clear();
         itemRows.clear();
 
-        try {
-            for (Sale sale : saleService.findSalesByDateRange(startDateTime, endDateTime)) {
-                saleRows.add(new SaleSummaryRow(
-                        sale.getSaleNo(),
-                        sale.getSaleDate().format(DATE_FORMATTER),
-                        sale.getTotalQuantity(),
-                        sale.getTotalAmount()
-                ));
-            }
-
-            updateSearchSummary();
-            updateDetailSummary();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            showWarning("조회 실패", "판매 내역 조회 중 오류가 발생했습니다.");
+        for (Sale sale : saleService.findSalesByDateRange(startDateTime, endDateTime)) {
+            saleRows.add(new SaleSummaryRow(
+                    sale.getSaleNo(),
+                    sale.getSaleDate().format(DATE_FORMATTER),
+                    sale.getTotalQuantity(),
+                    sale.getTotalAmount()
+            ));
         }
+
+        updateSearchSummary();
+        updateDetailSummary();
     }
 
     private void loadSales() {
         saleRows.clear();
 
-        try {
-            for (Sale sale : saleService.findAllSales()) {
-                saleRows.add(new SaleSummaryRow(
-                        sale.getSaleNo(),
-                        sale.getSaleDate().format(DATE_FORMATTER),
-                        sale.getTotalQuantity(),
-                        sale.getTotalAmount()
-                ));
-            }
-
-            updateSearchSummary();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            showWarning("조회 실패", "판매 내역 조회 중 오류가 발생했습니다.");
+        for (Sale sale : saleService.findAllSales()) {
+            saleRows.add(new SaleSummaryRow(
+                    sale.getSaleNo(),
+                    sale.getSaleDate().format(DATE_FORMATTER),
+                    sale.getTotalQuantity(),
+                    sale.getTotalAmount()
+            ));
         }
+
+        updateSearchSummary();
     }
 
     private void loadSaleItems(String saleNo) {
-        itemRows.clear();
+        runSafely("상세 조회 실패", () -> {
+            itemRows.clear();
 
-        try {
             Sale sale = saleService.findSaleWithItems(saleNo);
 
             for (SaleItem item : sale.getSaleItems()) {
@@ -274,30 +273,25 @@ run();
             }
 
             updateDetailSummary();
-
-        } catch (Exception e) {
-            showWarning("상세 조회 실패", e.getMessage());
-        }
+        });
     }
 
     @FXML
     private void onAddItem() {
-        SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
+        runSafely("품목 추가 실패", () -> {
+            SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
-        if (selectedSale == null) {
-            showWarning("추가 실패", "먼저 수정할 판매 내역을 선택하세요.");
-            return;
-        }
+            if (selectedSale == null) {
+                throw new IllegalArgumentException("먼저 수정할 판매 내역을 선택하세요.");
+            }
 
-        String barcode = barcodeField.getText();
+            String barcode = barcodeField.getText();
 
-        if (barcode == null || barcode.isBlank()) {
-            showWarning("입력 오류", "바코드를 입력하세요.");
-            barcodeField.requestFocus();
-            return;
-        }
+            if (barcode == null || barcode.isBlank()) {
+                barcodeField.requestFocus();
+                throw new IllegalArgumentException("바코드를 입력하세요.");
+            }
 
-        try {
             ParsedBarcode parsed = BarcodeParser.parse(barcode);
 
             Product product = saleService.findProductByCode(parsed.productCode());
@@ -316,101 +310,104 @@ run();
             barcodeField.clear();
             barcodeField.requestFocus();
             updateDetailSummary();
-
-        } catch (IllegalArgumentException e) {
-            showWarning("품목 추가 실패", e.getMessage());
-            barcodeField.clear();
-            barcodeField.requestFocus();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            showWarning("시스템 오류", "품목 추가 중 오류가 발생했습니다.");
-            barcodeField.clear();
-            barcodeField.requestFocus();
-        }
+        });
     }
 
     @FXML
     private void onDeleteItem() {
-        SaleRow selectedItem = itemTable.getSelectionModel().getSelectedItem();
+        runSafely("삭제 실패", () -> {
+            SaleRow selectedItem = itemTable.getSelectionModel().getSelectedItem();
 
-        if (selectedItem == null) {
-            showWarning("삭제 실패", "삭제할 품목을 선택하세요.");
-            return;
-        }
+            if (selectedItem == null) {
+                throw new IllegalArgumentException("삭제할 품목을 선택하세요.");
+            }
 
-        itemRows.remove(selectedItem);
-        updateDetailSummary();
-        barcodeField.requestFocus();
+            itemRows.remove(selectedItem);
+            updateDetailSummary();
+            barcodeField.requestFocus();
+        });
     }
 
     @FXML
     private void onUpdateSale() {
-        SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
+        runSafely("수정 실패", () -> {
+            SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
-        if (selectedSale == null) {
-            showWarning("수정 실패", "수정할 판매 내역을 선택하세요.");
-            return;
-        }
+            if (selectedSale == null) {
+                throw new IllegalArgumentException("수정할 판매 내역을 선택하세요.");
+            }
 
-        if (itemRows.isEmpty()) {
-            showWarning("수정 실패", "판매 품목이 0개입니다. 전체 삭제는 판매 삭제 버튼을 사용하세요.");
-            return;
-        }
+            if (itemRows.isEmpty()) {
+                throw new IllegalArgumentException("판매 품목이 0개입니다. 전체 삭제는 판매 삭제 버튼을 사용하세요.");
+            }
 
-        boolean confirmed = confirm(
-                "수정 저장",
-                "판매번호 [" + selectedSale.getSaleNo() + "] 내역을 수정 저장하시겠습니까?"
-        );
+            boolean confirmed = confirm(
+                    "수정 저장",
+                    "판매번호 [" + selectedSale.getSaleNo() + "] 내역을 수정 저장하시겠습니까?"
+            );
 
-        if (!confirmed) {
-            return;
-        }
+            if (!confirmed) {
+                return;
+            }
 
-        try {
             saleService.updateSale(selectedSale.getSaleNo(), itemRows);
 
             showInfo("수정 완료", "판매 내역이 수정되었습니다.");
 
-            onSearchByDate();
+            reloadCurrentSearchSafely();
             selectSaleByNo(selectedSale.getSaleNo());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            showWarning("수정 실패", e.getMessage());
-        }
+        });
     }
 
     @FXML
     private void onDeleteSale() {
-        SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
+        runSafely("삭제 실패", () -> {
+            SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
-        if (selectedSale == null) {
-            showWarning("삭제 실패", "삭제할 판매 내역을 선택하세요.");
-            return;
-        }
+            if (selectedSale == null) {
+                throw new IllegalArgumentException("삭제할 판매 내역을 선택하세요.");
+            }
 
-        boolean confirmed = confirm(
-                "판매 삭제",
-                "판매번호 [" + selectedSale.getSaleNo() + "]를 삭제하시겠습니까?\n상세 품목도 함께 삭제됩니다."
-        );
+            boolean confirmed = confirm(
+                    "판매 삭제",
+                    "판매번호 [" + selectedSale.getSaleNo() + "]를 삭제하시겠습니까?\n상세 품목도 함께 삭제됩니다."
+            );
 
-        if (!confirmed) {
-            return;
-        }
+            if (!confirmed) {
+                return;
+            }
 
-        try {
             saleService.deleteSale(selectedSale.getSaleNo());
 
             showInfo("삭제 완료", "판매 내역이 삭제되었습니다.");
 
-            onSearchByDate();
+            reloadCurrentSearchSafely();
             itemRows.clear();
             updateDetailSummary();
+        });
+    }
+
+    private void reloadCurrentSearchSafely() {
+        LocalDate startDate = startDatePicker.getValue();
+        LocalDate endDate = endDatePicker.getValue();
+
+        if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
+            searchSalesByDate(startDate, endDate);
+        } else {
+            loadSales();
+        }
+    }
+
+    private void runSafely(String errorTitle, Runnable action) {
+        try {
+            action.run();
+
+        } catch (IllegalArgumentException e) {
+            showWarning(errorTitle, e.getMessage());
 
         } catch (Exception e) {
             e.printStackTrace();
-            showWarning("삭제 실패", e.getMessage());
+            showWarning(errorTitle, "처리 중 오류가 발생했습니다.\n" + e.getMessage());
         }
     }
 
