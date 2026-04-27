@@ -8,6 +8,7 @@ import com.l7pos.l7_pos.util.ParsedBarcode;
 import com.l7pos.l7_pos.util.ProductNameUtil;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
@@ -33,6 +34,8 @@ public class SaleController {
 
     private final ObservableList<SaleRow> saleRows = FXCollections.observableArrayList();
     private final SaleService saleService = new SaleService();
+
+    private boolean busy = false;
 
     @FXML
     public void initialize() {
@@ -60,6 +63,10 @@ public class SaleController {
 
     @FXML
     private void onAddBarcode() {
+        if (busy) {
+            return;
+        }
+
         runSafely("상품 추가 실패", () -> {
             String barcode = barcodeField.getText();
 
@@ -67,29 +74,65 @@ public class SaleController {
                 throw new IllegalArgumentException("바코드를 입력하세요.");
             }
 
-            ParsedBarcode parsed = BarcodeParser.parse(barcode);
+            addBarcodeAsync(barcode);
+        });
+    }
 
-            Product product = saleService.findProductByCode(parsed.productCode());
+    private void addBarcodeAsync(String barcode) {
+        setBusy(true);
 
-            String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
+        Task<SaleRow> task = new Task<>() {
+            @Override
+            protected SaleRow call() {
+                ParsedBarcode parsed = BarcodeParser.parse(barcode);
 
-            SaleRow row = new SaleRow(
-                    parsed.barcode(),
-                    parsed.productCode(),
-                    displayName,
-                    parsed.color(),
-                    parsed.size(),
-                    product.getPrice()
-            );
+                Product product = saleService.findProductByCode(parsed.productCode());
 
-            saleRows.add(row);
+                if (product == null) {
+                    throw new IllegalArgumentException("등록되지 않은 상품코드입니다: " + parsed.productCode());
+                }
+
+                String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
+
+                return new SaleRow(
+                        parsed.barcode(),
+                        parsed.productCode(),
+                        displayName,
+                        parsed.color(),
+                        parsed.size(),
+                        product.getPrice()
+                );
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            saleRows.add(task.getValue());
             updateSummary();
+            clearBarcodeAndFocus();
+        });
 
-        }, true);
+        task.setOnFailed(event -> {
+            setBusy(false);
+
+            if (barcodeField != null) {
+                barcodeField.requestFocus();
+                barcodeField.selectAll();
+            }
+
+            handleTaskError("상품 추가 실패", task.getException());
+        });
+
+        startDaemonTask(task);
     }
 
     @FXML
     private void onDeleteSelected() {
+        if (busy) {
+            return;
+        }
+
         runSafely("삭제 실패", () -> {
             SaleRow selected = saleTable.getSelectionModel().getSelectedItem();
 
@@ -99,12 +142,16 @@ public class SaleController {
 
             saleRows.remove(selected);
             updateSummary();
-
-        }, true);
+            clearBarcodeAndFocus();
+        });
     }
 
     @FXML
     private void onRegisterSale() {
+        if (busy) {
+            return;
+        }
+
         runSafely("등록 실패", () -> {
             if (saleRows.isEmpty()) {
                 throw new IllegalArgumentException("등록할 판매 품목이 없습니다.");
@@ -116,20 +163,66 @@ public class SaleController {
                 throw new IllegalArgumentException("판매번호가 없습니다.");
             }
 
-            saleService.saveSale(saleNo, saleRows);
+            ObservableList<SaleRow> snapshot = FXCollections.observableArrayList(saleRows);
+
+            registerSaleAsync(saleNo, snapshot);
+        });
+    }
+
+    private void registerSaleAsync(String saleNo, ObservableList<SaleRow> snapshot) {
+        setBusy(true);
+
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                saleService.saveSale(saleNo, snapshot);
+                return saleService.createSaleNo();
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
 
             showInfo("등록 완료", "판매 등록이 완료되었습니다.");
 
             saleRows.clear();
-            saleNoField.setText(saleService.createSaleNo());
+            saleNoField.setText(task.getValue());
             updateSummary();
+            clearBarcodeAndFocus();
+        });
 
-        }, true);
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("등록 실패", task.getException());
+            clearBarcodeAndFocus();
+        });
+
+        startDaemonTask(task);
     }
 
     @FXML
     private void onNewSale() {
-        runSafely("초기화 실패", this::resetSale, true);
+        if (busy) {
+            return;
+        }
+
+        runSafely("초기화 실패", () -> {
+            boolean confirmed = true;
+
+            if (!saleRows.isEmpty()) {
+                confirmed = confirm(
+                        "새 판매",
+                        "현재 입력된 판매 품목이 삭제됩니다.\n새 판매를 시작하시겠습니까?"
+                );
+            }
+
+            if (!confirmed) {
+                return;
+            }
+
+            resetSale();
+            clearBarcodeAndFocus();
+        });
     }
 
     private void resetSale() {
@@ -159,11 +252,54 @@ public class SaleController {
         }
     }
 
-    private void runSafely(String errorTitle, Runnable action) {
-        runSafely(errorTitle, action, false);
+    private void setBusy(boolean busy) {
+        this.busy = busy;
+
+        if (barcodeField != null) {
+            barcodeField.setDisable(busy);
+        }
+
+        if (saleTable != null) {
+            saleTable.setDisable(busy);
+        }
     }
 
-    private void runSafely(String errorTitle, Runnable action, boolean clearAndFocus) {
+    private void startDaemonTask(Task<?> task) {
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void handleTaskError(String title, Throwable error) {
+        if (error != null) {
+            error.printStackTrace();
+        }
+
+        String message;
+
+        if (error instanceof IllegalArgumentException) {
+            message = error.getMessage();
+        } else if (error != null && error.getMessage() != null && !error.getMessage().isBlank()) {
+            message = "처리 중 오류가 발생했습니다.\n" + error.getMessage();
+        } else {
+            message = "처리 중 알 수 없는 오류가 발생했습니다.";
+        }
+
+        showWarning(title, message);
+    }
+
+    private boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        return alert.showAndWait()
+                .filter(buttonType -> buttonType == ButtonType.OK)
+                .isPresent();
+    }
+
+    private void runSafely(String errorTitle, Runnable action) {
         try {
             action.run();
 
@@ -173,11 +309,6 @@ public class SaleController {
         } catch (Exception e) {
             e.printStackTrace();
             showWarning(errorTitle, "처리 중 오류가 발생했습니다.\n" + e.getMessage());
-
-        } finally {
-            if (clearAndFocus) {
-                clearBarcodeAndFocus();
-            }
         }
     }
 

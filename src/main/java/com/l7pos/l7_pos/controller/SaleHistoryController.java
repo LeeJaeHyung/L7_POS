@@ -11,6 +11,7 @@ import com.l7pos.l7_pos.util.ParsedBarcode;
 import com.l7pos.l7_pos.util.ProductNameUtil;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.input.Clipboard;
@@ -57,6 +58,9 @@ public class SaleHistoryController {
     private final ObservableList<SaleSummaryRow> saleRows = FXCollections.observableArrayList();
     private final ObservableList<SaleRow> itemRows = FXCollections.observableArrayList();
 
+    private boolean busy = false;
+    private boolean internalSelectionChanging = false;
+
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -77,16 +81,21 @@ public class SaleHistoryController {
             saleTable.getSelectionModel()
                     .selectedItemProperty()
                     .addListener((obs, oldValue, newValue) -> {
+                        if (internalSelectionChanging) {
+                            return;
+                        }
+
                         if (newValue != null) {
-                            loadSaleItems(newValue.getSaleNo());
+                            loadSaleItemsAsync(newValue.getSaleNo());
                         }
                     });
 
             barcodeField.setOnAction(event -> onAddItem());
 
-            searchSalesByDate(today, today);
-
+            updateSearchSummary();
             updateDetailSummary();
+
+            searchSalesByDateAsync(today, today, null);
         });
     }
 
@@ -109,17 +118,19 @@ public class SaleHistoryController {
 
     @FXML
     private void onReload() {
-        runSafely("전체 조회 실패", () -> {
-            loadSales();
-            itemRows.clear();
-            updateDetailSummary();
-            updateSearchSummary();
-            barcodeField.clear();
-        });
+        if (busy) {
+            return;
+        }
+
+        loadSalesAsync();
     }
 
     @FXML
     private void onSearchByDate() {
+        if (busy) {
+            return;
+        }
+
         runSafely("조회 실패", () -> {
             LocalDate startDate = startDatePicker.getValue();
             LocalDate endDate = endDatePicker.getValue();
@@ -132,47 +143,73 @@ public class SaleHistoryController {
                 throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
             }
 
-            searchSalesByDate(startDate, endDate);
+            searchSalesByDateAsync(startDate, endDate, null);
         });
     }
 
     @FXML
     private void onCopyTodayBarcodeScript() {
-        runSafely("복사 실패", () -> {
-            LocalDate today = LocalDate.now();
-            LocalDateTime startDateTime = today.atStartOfDay();
-            LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
+        if (busy) {
+            return;
+        }
 
-            List<String> result = saleService.findBarcodesByDateRange(startDateTime, endDateTime);
+        setBusy(true);
 
-            if (result == null || result.isEmpty()) {
-                showInfo("알림", "오늘 판매된 내역이 없습니다.");
-                return;
+        Task<CopyBarcodeResult> task = new Task<>() {
+            @Override
+            protected CopyBarcodeResult call() {
+                LocalDate today = LocalDate.now();
+                LocalDateTime startDateTime = today.atStartOfDay();
+                LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
+
+                List<String> result = saleService.findBarcodesByDateRange(startDateTime, endDateTime);
+
+                if (result == null || result.isEmpty()) {
+                    throw new IllegalArgumentException("오늘 판매된 내역이 없습니다.");
+                }
+
+                List<String> barcodes = result.stream()
+                        .filter(code -> code != null && !code.isBlank())
+                        .map(code -> code.trim().toUpperCase())
+                        .toList();
+
+                if (barcodes.isEmpty()) {
+                    throw new IllegalArgumentException("오늘 판매된 바코드가 없습니다.");
+                }
+
+                String script = generateUbiposConsoleScript(barcodes);
+
+                return new CopyBarcodeResult(script, barcodes.size());
             }
+        };
 
-            List<String> barcodes = result.stream()
-                    .filter(code -> code != null && !code.isBlank())
-                    .map(code -> code.trim().toUpperCase())
-                    .toList();
+        task.setOnSucceeded(event -> {
+            setBusy(false);
 
-            if (barcodes.isEmpty()) {
-                showInfo("알림", "오늘 판매된 바코드가 없습니다.");
-                return;
-            }
-
-            String script = generateUbiposConsoleScript(barcodes);
+            CopyBarcodeResult result = task.getValue();
 
             ClipboardContent content = new ClipboardContent();
-            content.putString(script);
+            content.putString(result.script());
 
             boolean copied = Clipboard.getSystemClipboard().setContent(content);
 
             if (!copied) {
-                throw new IllegalArgumentException("클립보드에 복사하지 못했습니다.");
+                showWarning("복사 실패", "클립보드에 복사하지 못했습니다.");
+                return;
             }
 
-            showInfo("복사 완료", "오늘 판매된 바코드 " + barcodes.size() + "건의 콘솔 스크립트가 복사되었습니다.");
+            showInfo(
+                    "복사 완료",
+                    "오늘 판매된 바코드 " + result.count() + "건의 콘솔 스크립트가 복사되었습니다."
+            );
         });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("복사 실패", task.getException());
+        });
+
+        startDaemonTask(task);
     }
 
     private String generateUbiposConsoleScript(List<String> barcodes) {
@@ -220,64 +257,150 @@ run();
                 .replace("\"", "\\\"");
     }
 
-    private void searchSalesByDate(LocalDate startDate, LocalDate endDate) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+    private void searchSalesByDateAsync(LocalDate startDate, LocalDate endDate, String selectSaleNoAfterLoad) {
+        setBusy(true);
 
-        saleRows.clear();
-        itemRows.clear();
+        Task<List<SaleSummaryRow>> task = new Task<>() {
+            @Override
+            protected List<SaleSummaryRow> call() {
+                LocalDateTime startDateTime = startDate.atStartOfDay();
+                LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
 
-        for (Sale sale : saleService.findSalesByDateRange(startDateTime, endDateTime)) {
-            saleRows.add(new SaleSummaryRow(
-                    sale.getSaleNo(),
-                    sale.getSaleDate().format(DATE_FORMATTER),
-                    sale.getTotalQuantity(),
-                    sale.getTotalAmount()
-            ));
-        }
-
-        updateSearchSummary();
-        updateDetailSummary();
-    }
-
-    private void loadSales() {
-        saleRows.clear();
-
-        for (Sale sale : saleService.findAllSales()) {
-            saleRows.add(new SaleSummaryRow(
-                    sale.getSaleNo(),
-                    sale.getSaleDate().format(DATE_FORMATTER),
-                    sale.getTotalQuantity(),
-                    sale.getTotalAmount()
-            ));
-        }
-
-        updateSearchSummary();
-    }
-
-    private void loadSaleItems(String saleNo) {
-        runSafely("상세 조회 실패", () -> {
-            itemRows.clear();
-
-            Sale sale = saleService.findSaleWithItems(saleNo);
-
-            for (SaleItem item : sale.getSaleItems()) {
-                itemRows.add(new SaleRow(
-                        item.getBarcode(),
-                        item.getProductCode(),
-                        item.getProductName(),
-                        item.getColor(),
-                        item.getSize(),
-                        item.getPrice()
-                ));
+                return saleService.findSalesByDateRange(startDateTime, endDateTime)
+                        .stream()
+                        .map(sale -> new SaleSummaryRow(
+                                sale.getSaleNo(),
+                                sale.getSaleDate().format(DATE_FORMATTER),
+                                sale.getTotalQuantity(),
+                                sale.getTotalAmount()
+                        ))
+                        .toList();
             }
+        };
 
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            internalSelectionChanging = true;
+            saleRows.setAll(task.getValue());
+            itemRows.clear();
+            saleTable.getSelectionModel().clearSelection();
+            internalSelectionChanging = false;
+
+            updateSearchSummary();
             updateDetailSummary();
+
+            if (selectSaleNoAfterLoad != null && !selectSaleNoAfterLoad.isBlank()) {
+                selectSaleByNo(selectSaleNoAfterLoad);
+            }
         });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("조회 실패", task.getException());
+        });
+
+        startDaemonTask(task);
+    }
+
+    private void loadSalesAsync() {
+        setBusy(true);
+
+        Task<List<SaleSummaryRow>> task = new Task<>() {
+            @Override
+            protected List<SaleSummaryRow> call() {
+                return saleService.findAllSales()
+                        .stream()
+                        .map(sale -> new SaleSummaryRow(
+                                sale.getSaleNo(),
+                                sale.getSaleDate().format(DATE_FORMATTER),
+                                sale.getTotalQuantity(),
+                                sale.getTotalAmount()
+                        ))
+                        .toList();
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            internalSelectionChanging = true;
+            saleRows.setAll(task.getValue());
+            itemRows.clear();
+            saleTable.getSelectionModel().clearSelection();
+            internalSelectionChanging = false;
+
+            updateSearchSummary();
+            updateDetailSummary();
+
+            if (barcodeField != null) {
+                barcodeField.clear();
+            }
+        });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("전체 조회 실패", task.getException());
+        });
+
+        startDaemonTask(task);
+    }
+
+    private void loadSaleItemsAsync(String saleNo) {
+        if (busy) {
+            return;
+        }
+
+        if (saleNo == null || saleNo.isBlank()) {
+            return;
+        }
+
+        setBusy(true);
+
+        Task<List<SaleRow>> task = new Task<>() {
+            @Override
+            protected List<SaleRow> call() {
+                Sale sale = saleService.findSaleWithItems(saleNo);
+
+                return sale.getSaleItems()
+                        .stream()
+                        .map(item -> new SaleRow(
+                                item.getBarcode(),
+                                item.getProductCode(),
+                                item.getProductName(),
+                                item.getColor(),
+                                item.getSize(),
+                                item.getPrice()
+                        ))
+                        .toList();
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            itemRows.setAll(task.getValue());
+            updateDetailSummary();
+
+            if (barcodeField != null) {
+                barcodeField.requestFocus();
+            }
+        });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("상세 조회 실패", task.getException());
+        });
+
+        startDaemonTask(task);
     }
 
     @FXML
     private void onAddItem() {
+        if (busy) {
+            return;
+        }
+
         runSafely("품목 추가 실패", () -> {
             SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
@@ -292,29 +415,66 @@ run();
                 throw new IllegalArgumentException("바코드를 입력하세요.");
             }
 
-            ParsedBarcode parsed = BarcodeParser.parse(barcode);
+            addItemAsync(barcode);
+        });
+    }
 
-            Product product = saleService.findProductByCode(parsed.productCode());
+    private void addItemAsync(String barcode) {
+        setBusy(true);
 
-            String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
+        Task<SaleRow> task = new Task<>() {
+            @Override
+            protected SaleRow call() {
+                ParsedBarcode parsed = BarcodeParser.parse(barcode);
 
-            itemRows.add(new SaleRow(
-                    parsed.barcode(),
-                    parsed.productCode(),
-                    displayName,
-                    parsed.color(),
-                    parsed.size(),
-                    product.getPrice()
-            ));
+                Product product = saleService.findProductByCode(parsed.productCode());
 
-            barcodeField.clear();
-            barcodeField.requestFocus();
+                String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
+
+                return new SaleRow(
+                        parsed.barcode(),
+                        parsed.productCode(),
+                        displayName,
+                        parsed.color(),
+                        parsed.size(),
+                        product.getPrice()
+                );
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            itemRows.add(task.getValue());
+
+            if (barcodeField != null) {
+                barcodeField.clear();
+                barcodeField.requestFocus();
+            }
+
             updateDetailSummary();
         });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+
+            if (barcodeField != null) {
+                barcodeField.requestFocus();
+                barcodeField.selectAll();
+            }
+
+            handleTaskError("품목 추가 실패", task.getException());
+        });
+
+        startDaemonTask(task);
     }
 
     @FXML
     private void onDeleteItem() {
+        if (busy) {
+            return;
+        }
+
         runSafely("삭제 실패", () -> {
             SaleRow selectedItem = itemTable.getSelectionModel().getSelectedItem();
 
@@ -324,12 +484,19 @@ run();
 
             itemRows.remove(selectedItem);
             updateDetailSummary();
-            barcodeField.requestFocus();
+
+            if (barcodeField != null) {
+                barcodeField.requestFocus();
+            }
         });
     }
 
     @FXML
     private void onUpdateSale() {
+        if (busy) {
+            return;
+        }
+
         runSafely("수정 실패", () -> {
             SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
@@ -350,17 +517,44 @@ run();
                 return;
             }
 
-            saleService.updateSale(selectedSale.getSaleNo(), itemRows);
+            ObservableList<SaleRow> snapshot = FXCollections.observableArrayList(itemRows);
+
+            updateSaleAsync(selectedSale.getSaleNo(), snapshot);
+        });
+    }
+
+    private void updateSaleAsync(String saleNo, ObservableList<SaleRow> snapshot) {
+        setBusy(true);
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() {
+                saleService.updateSale(saleNo, snapshot);
+                return null;
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
 
             showInfo("수정 완료", "판매 내역이 수정되었습니다.");
-
-            reloadCurrentSearchSafely();
-            selectSaleByNo(selectedSale.getSaleNo());
+            reloadCurrentSearchAsync(saleNo);
         });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("수정 실패", task.getException());
+        });
+
+        startDaemonTask(task);
     }
 
     @FXML
     private void onDeleteSale() {
+        if (busy) {
+            return;
+        }
+
         runSafely("삭제 실패", () -> {
             SaleSummaryRow selectedSale = saleTable.getSelectionModel().getSelectedItem();
 
@@ -377,25 +571,83 @@ run();
                 return;
             }
 
-            saleService.deleteSale(selectedSale.getSaleNo());
-
-            showInfo("삭제 완료", "판매 내역이 삭제되었습니다.");
-
-            reloadCurrentSearchSafely();
-            itemRows.clear();
-            updateDetailSummary();
+            deleteSaleAsync(selectedSale.getSaleNo());
         });
     }
 
-    private void reloadCurrentSearchSafely() {
+    private void deleteSaleAsync(String saleNo) {
+        setBusy(true);
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() {
+                saleService.deleteSale(saleNo);
+                return null;
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            setBusy(false);
+
+            showInfo("삭제 완료", "판매 내역이 삭제되었습니다.");
+
+            itemRows.clear();
+            updateDetailSummary();
+
+            reloadCurrentSearchAsync(null);
+        });
+
+        task.setOnFailed(event -> {
+            setBusy(false);
+            handleTaskError("삭제 실패", task.getException());
+        });
+
+        startDaemonTask(task);
+    }
+
+    private void reloadCurrentSearchAsync(String selectSaleNoAfterLoad) {
         LocalDate startDate = startDatePicker.getValue();
         LocalDate endDate = endDatePicker.getValue();
 
         if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
-            searchSalesByDate(startDate, endDate);
+            searchSalesByDateAsync(startDate, endDate, selectSaleNoAfterLoad);
         } else {
-            loadSales();
+            loadSalesAsync();
         }
+    }
+
+    private void setBusy(boolean busy) {
+        this.busy = busy;
+
+        if (startDatePicker != null) startDatePicker.setDisable(busy);
+        if (endDatePicker != null) endDatePicker.setDisable(busy);
+        if (saleTable != null) saleTable.setDisable(busy);
+        if (itemTable != null) itemTable.setDisable(busy);
+        if (barcodeField != null) barcodeField.setDisable(busy);
+    }
+
+    private void startDaemonTask(Task<?> task) {
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void handleTaskError(String title, Throwable error) {
+        if (error != null) {
+            error.printStackTrace();
+        }
+
+        String message;
+
+        if (error instanceof IllegalArgumentException) {
+            message = error.getMessage();
+        } else if (error != null && error.getMessage() != null && !error.getMessage().isBlank()) {
+            message = "처리 중 오류가 발생했습니다.\n" + error.getMessage();
+        } else {
+            message = "처리 중 알 수 없는 오류가 발생했습니다.";
+        }
+
+        showWarning(title, message);
     }
 
     private void runSafely(String errorTitle, Runnable action) {
@@ -412,6 +664,10 @@ run();
     }
 
     private void selectSaleByNo(String saleNo) {
+        if (saleNo == null || saleNo.isBlank()) {
+            return;
+        }
+
         for (SaleSummaryRow row : saleRows) {
             if (row.getSaleNo().equals(saleNo)) {
                 saleTable.getSelectionModel().select(row);
@@ -466,7 +722,7 @@ run();
         Alert alert = new Alert(Alert.AlertType.WARNING);
         alert.setTitle(title);
         alert.setHeaderText(null);
-        alert.setContentText(message);
+        alert.setContentText(message == null ? "알 수 없는 오류가 발생했습니다." : message);
         alert.showAndWait();
     }
 
@@ -474,7 +730,10 @@ run();
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setHeaderText(null);
-        alert.setContentText(message);
+        alert.setContentText(message == null ? "" : message);
         alert.showAndWait();
+    }
+
+    private record CopyBarcodeResult(String script, int count) {
     }
 }
