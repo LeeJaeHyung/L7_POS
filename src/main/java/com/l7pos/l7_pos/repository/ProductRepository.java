@@ -120,15 +120,11 @@ public class ProductRepository {
     /**
      * 상품 가격 수정
      *
-     * 같이 수정되는 대상:
-     * 1. product.price
-     * 2. sale_item.price
-     * 3. sale_item.amount
-     * 4. sale.total_amount
+     * 수정 대상은 product.price 뿐이다.
      *
-     * 주의:
-     * 과거 판매내역 가격까지 변경되므로
-     * 과거 매출 통계도 현재 상품 가격 기준으로 바뀐다.
+     * sale_item.price / sale_item.amount / sale.total_amount 는
+     * 판매 시점의 가격 스냅샷이므로 여기서 건드리지 않는다.
+     * 상품 마스터 가격을 바꿔도 과거 판매내역과 매출 통계는 그대로 유지된다.
      */
     public void update(Long id, Integer price) {
         EntityManager em = JPAUtil.getEntityManager();
@@ -146,53 +142,7 @@ public class ProductRepository {
                 throw new IllegalArgumentException("가격은 0보다 커야 합니다.");
             }
 
-            String productCode = normalizeProductCode(product.getProductCode());
-
-            if (productCode.isEmpty()) {
-                throw new IllegalArgumentException("상품코드가 없습니다.");
-            }
-
-            // 1. 상품 가격 수정
             product.setPrice(price);
-
-            /*
-             * 2. 기존 판매 상세 가격 수정
-             *
-             * 현재 sale_item 구조는 수량 컬럼이 없고
-             * 한 행 = 한 개 판매 구조이므로
-             * price와 amount를 동일하게 변경한다.
-             */
-            em.createQuery(
-                            "UPDATE SaleItem si " +
-                                    "SET si.price = :price, " +
-                                    "    si.amount = :price " +
-                                    "WHERE UPPER(si.productCode) = :productCode"
-                    )
-                    .setParameter("price", price)
-                    .setParameter("productCode", productCode)
-                    .executeUpdate();
-
-            /*
-             * 3. 판매 마스터 총 금액 재계산
-             *
-             * sale.totalAmount = 해당 sale_no의 sale_item.amount 합계
-             */
-            em.createQuery(
-                            "UPDATE Sale s " +
-                                    "SET s.totalAmount = (" +
-                                    "    SELECT COALESCE(SUM(si.amount), 0) " +
-                                    "    FROM SaleItem si " +
-                                    "    WHERE si.sale = s" +
-                                    ") " +
-                                    "WHERE EXISTS (" +
-                                    "    SELECT 1 " +
-                                    "    FROM SaleItem si2 " +
-                                    "    WHERE si2.sale = s " +
-                                    "      AND UPPER(si2.productCode) = :productCode" +
-                                    ")"
-                    )
-                    .setParameter("productCode", productCode)
-                    .executeUpdate();
 
             em.getTransaction().commit();
 
