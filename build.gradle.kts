@@ -92,6 +92,19 @@ tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+/*
+ * 설치 파일 만들기
+ *
+ * jpackage 는 크로스 빌드를 못 한다.
+ * 윈도우 exe 는 반드시 윈도우에서 빌드해야 한다.
+ * (맥에서 --type exe 를 주면 "Invalid or unsupported type" 으로 거부된다)
+ *
+ * 자바 런타임은 jpackage 가 자동으로 함께 넣으므로
+ * 사용자 PC 에 자바를 따로 설치할 필요가 없다.
+ *
+ * SQLite 는 sqlite-jdbc jar 안에 윈도우용 DLL 이 들어있어
+ * 별도 처리 없이 그대로 동작한다.
+ */
 val prepareJpackageInput by tasks.registering(Copy::class) {
     dependsOn(tasks.jar)
 
@@ -101,12 +114,74 @@ val prepareJpackageInput by tasks.registering(Copy::class) {
         rename { "$appName.jar" }
     }
 
+    // JavaFX 는 플랫폼별 jar 를 쓴다. 빌드하는 OS 것이 자동으로 들어간다.
     from(configurations.runtimeClasspath)
+
+    // 같은 이름의 jar 가 겹칠 때 빌드가 깨지지 않도록
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+/**
+ * jpackage 공통 인자
+ *
+ * type 이 "app-image" 면 설치 파일이 아니라
+ * 실행 가능한 폴더만 만든다. (빌드 점검용)
+ */
+fun jpackageArguments(type: String): List<String> {
+    val osName = System.getProperty("os.name").lowercase()
+    val isWindows = osName.contains("win")
+    val isMac = osName.contains("mac")
+
+    val iconPath = when {
+        isWindows -> file("src/main/resources/icon.ico")
+        isMac -> file("src/main/resources/icon.icns")
+        else -> null
+    }
+
+    val args = mutableListOf(
+        "${System.getProperty("java.home")}/bin/jpackage",
+        "--type", type,
+        "--name", appName,
+        "--input", layout.buildDirectory.dir("jpackage-input").get().asFile.absolutePath,
+        "--main-jar", "$appName.jar",
+        "--main-class", mainClassName,
+        "--app-version", version.toString(),
+        "--vendor", "L7POS",
+        "--description", "L7 POS 매장 판매 관리",
+        "--dest", layout.buildDirectory.dir("jpackage").get().asFile.absolutePath,
+        // 한글이 깨지지 않도록 인코딩을 고정한다
+        "--java-options", "-Dfile.encoding=UTF-8"
+    )
+
+    if (iconPath != null && iconPath.exists()) {
+        args.add("--icon")
+        args.add(iconPath.absolutePath)
+    }
+
+    // 설치 파일일 때만 의미 있는 옵션들
+    if (isWindows && type != "app-image") {
+        args.addAll(
+            listOf(
+                "--win-shortcut",           // 바탕화면 바로가기
+                "--win-menu",               // 시작 메뉴 등록
+                "--win-menu-group", "L7 POS",
+                "--win-dir-chooser",        // 설치 경로 선택 가능
+                "--win-per-user-install",   // 관리자 권한 없이 설치
+                // 재설치할 때 새로 깔리지 않고 갱신되도록 고정 ID 를 준다
+                "--win-upgrade-uuid", "0873EC1F-ECD0-4EFA-BFB2-9CC8D31C5CD0"
+            )
+        )
+    }
+
+    return args
+}
+
+/**
+ * 설치 파일 생성 (윈도우 exe / 맥 dmg / 리눅스 deb)
+ */
 tasks.register<Exec>("jpackage") {
     group = "distribution"
-    description = "Create native installer using jpackage"
+    description = "현재 OS 용 설치 파일을 만든다 (윈도우 exe 는 윈도우에서 실행해야 함)"
 
     dependsOn(prepareJpackageInput)
 
@@ -118,40 +193,39 @@ tasks.register<Exec>("jpackage") {
         else -> "deb"
     }
 
-    val iconPath = when {
-        osName.contains("win") -> file("src/main/resources/icon.ico")
-        osName.contains("mac") -> file("src/main/resources/icon.icns")
-        else -> null
+    doFirst {
+        delete(layout.buildDirectory.dir("jpackage"))
+        mkdir(layout.buildDirectory.dir("jpackage"))
+
+        logger.lifecycle("설치 파일 형식: $installerType (빌드 OS: $osName)")
+
+        if (installerType != "exe") {
+            logger.lifecycle(
+                "윈도우 exe 가 필요하면 윈도우에서 gradlew.bat jpackage 를 실행하거나, " +
+                        "GitHub Actions 의 windows-installer 워크플로를 사용하세요."
+            )
+        }
     }
 
-    val jpackageExecutable = "${System.getProperty("java.home")}/bin/jpackage"
+    commandLine(jpackageArguments(installerType))
+}
+
+/**
+ * 설치 파일 없이 실행 폴더만 만든다.
+ *
+ * 자바 런타임이 제대로 들어갔는지, 의존 jar 가 빠지지 않았는지
+ * 빠르게 확인할 때 쓴다.
+ */
+tasks.register<Exec>("jpackageAppImage") {
+    group = "distribution"
+    description = "설치 파일 대신 실행 폴더만 만든다 (패키징 점검용)"
+
+    dependsOn(prepareJpackageInput)
 
     doFirst {
         delete(layout.buildDirectory.dir("jpackage"))
         mkdir(layout.buildDirectory.dir("jpackage"))
     }
 
-    val args = mutableListOf(
-        jpackageExecutable,
-        "--type", installerType,
-        "--name", appName,
-        "--input", layout.buildDirectory.dir("jpackage-input").get().asFile.absolutePath,
-        "--main-jar", "$appName.jar",
-        "--main-class", mainClassName,
-        "--app-version", version.toString(),
-        "--vendor", "L7POS",
-        "--dest", layout.buildDirectory.dir("jpackage").get().asFile.absolutePath
-    )
-
-    if (iconPath != null && iconPath.exists()) {
-        args.add("--icon")
-        args.add(iconPath.absolutePath)
-    }
-
-    if (osName.contains("win")) {
-        args.add("--win-shortcut")
-        args.add("--win-menu")
-    }
-
-    commandLine(args)
+    commandLine(jpackageArguments("app-image"))
 }
