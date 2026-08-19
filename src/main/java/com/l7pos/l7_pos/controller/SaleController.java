@@ -1,11 +1,12 @@
 package com.l7pos.l7_pos.controller;
 
+import com.l7pos.l7_pos.dto.ResolvedBarcode;
 import com.l7pos.l7_pos.dto.SaleRow;
-import com.l7pos.l7_pos.entity.Product;
 import com.l7pos.l7_pos.service.SaleService;
-import com.l7pos.l7_pos.util.BarcodeParser;
+import com.l7pos.l7_pos.util.EnglishInputGuard;
 import com.l7pos.l7_pos.util.ParsedBarcode;
 import com.l7pos.l7_pos.util.ProductNameUtil;
+import com.l7pos.l7_pos.util.TableFormats;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -56,8 +57,13 @@ public class SaleController {
             priceColumn.setCellValueFactory(data -> data.getValue().priceProperty());
             amountColumn.setCellValueFactory(data -> data.getValue().amountProperty());
 
+            TableFormats.applyMoney(priceColumn);
+            TableFormats.applyMoney(amountColumn);
+
             saleTable.setItems(saleRows);
 
+            // 한/영 상태와 무관하게 영문으로 입력받는다.
+            EnglishInputGuard.install(barcodeField);
             barcodeField.setOnAction(event -> onAddBarcode());
 
             updateSummary();
@@ -86,36 +92,39 @@ public class SaleController {
         setBusy(true);
         showStatus("상품 조회 중입니다...");
 
-        Task<SaleRow> task = new Task<>() {
+        Task<ResolvedBarcode> task = new Task<>() {
             @Override
-            protected SaleRow call() {
-                ParsedBarcode parsed = BarcodeParser.parse(barcode);
-
-                Product product = saleService.findProductByCode(parsed.productCode());
-
-                if (product == null) {
-                    throw new IllegalArgumentException("등록되지 않은 상품코드입니다: " + parsed.productCode());
-                }
-
-                String displayName = ProductNameUtil.toDisplayName(parsed.productCode());
-
-                return new SaleRow(
-                        parsed.barcode(),
-                        parsed.productCode(),
-                        displayName,
-                        parsed.color(),
-                        parsed.size(),
-                        product.getPrice()
-                );
+            protected ResolvedBarcode call() {
+                return saleService.resolveBarcode(barcode);
             }
         };
 
         task.setOnSucceeded(event -> {
             setBusy(false);
 
-            saleRows.add(task.getValue());
+            ResolvedBarcode resolved = task.getValue();
+            ParsedBarcode parsed = resolved.parsed();
+
+            saleRows.add(new SaleRow(
+                    parsed.barcode(),
+                    parsed.productCode(),
+                    ProductNameUtil.toDisplayName(parsed.productCode()),
+                    parsed.color(),
+                    parsed.size(),
+                    resolved.product().getPrice()
+            ));
+
             updateSummary();
             clearBarcodeAndFocus();
+
+            /*
+             * 앞에 잘못된 글자가 섞여 있었다면 알려준다.
+             * 조용히 고쳐버리면 엉뚱한 상품이 들어가도 모르고 지나칠 수 있다.
+             */
+            if (resolved.recovered()) {
+                showStatus("앞에 섞인 글자를 떼고 인식했습니다: "
+                        + resolved.rawInput() + " → " + parsed.barcode());
+            }
         });
 
         task.setOnFailed(event -> {

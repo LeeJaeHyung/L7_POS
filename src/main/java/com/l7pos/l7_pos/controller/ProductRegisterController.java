@@ -2,6 +2,7 @@ package com.l7pos.l7_pos.controller;
 
 import com.l7pos.l7_pos.entity.Product;
 import com.l7pos.l7_pos.repository.ProductRepository;
+import com.l7pos.l7_pos.util.EnglishInputGuard;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -110,6 +111,11 @@ public class ProductRegisterController {
                     priceField.setText(newValue.replaceAll("[^\\d]", ""));
                 }
             });
+
+            // 한/영 상태와 무관하게 영문으로 입력받는다.
+            // priceField 는 숫자 전용이라 대상이 아니다.
+            EnglishInputGuard.install(barcodeField);
+            EnglishInputGuard.install(searchField);
 
             barcodeField.setOnAction(event -> priceField.requestFocus());
             priceField.setOnAction(event -> onSave());

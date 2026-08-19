@@ -14,43 +14,43 @@
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.l7pos.l7_pos.controller.ProductRegisterController"
-            prefWidth="1150" prefHeight="700"
-            styleClass="root-pane">
+            styleClass="page">
 
     <top>
         <VBox spacing="0">
-            <HBox styleClass="top-bar" alignment="CENTER_LEFT" spacing="12">
+            <VBox spacing="14">
                 <padding>
-                    <Insets top="16" right="20" bottom="16" left="20"/>
-                </padding>
-                <Label text="L7 POS" styleClass="logo-label"/>
-                <Label text="상품 관리" styleClass="page-title"/>
-            </HBox>
-
-            <HBox spacing="10" styleClass="search-bar" alignment="CENTER_LEFT">
-                <padding>
-                    <Insets top="14" right="20" bottom="14" left="20"/>
+                    <Insets top="20" right="20" bottom="4" left="20"/>
                 </padding>
 
-                <Label text="상품 조회" styleClass="search-label"/>
+                <VBox spacing="3">
+                    <Label text="상품 · 가격 관리" styleClass="page-title"/>
+                    <Label text="상품을 등록하고 판매 가격을 관리합니다." styleClass="page-desc"/>
+                </VBox>
 
-                <TextField fx:id="searchField"
-                           promptText="상품코드를 입력하세요"
-                           styleClass="search-input"
-                           prefWidth="260"/>
+                <HBox spacing="10" styleClass="card" alignment="CENTER_LEFT">
+                    <padding>
+                        <Insets top="14" right="18" bottom="14" left="18"/>
+                    </padding>
 
-                <Button fx:id="searchButton"
-                        text="조회"
-                        onAction="#onSearch"
-                        styleClass="search-button"
-                        prefHeight="40"/>
+                    <Label text="상품 조회" styleClass="field-label"/>
 
-                <Button fx:id="resetButton"
-                        text="전체조회"
-                        onAction="#onReset"
-                        styleClass="secondary-button"
-                        prefHeight="40"/>
-            </HBox>
+                    <TextField fx:id="searchField"
+                               promptText="상품코드를 입력하세요"
+                               styleClass="code-input"
+                               prefWidth="260"/>
+
+                    <Button fx:id="searchButton"
+                            text="조회"
+                            onAction="#onSearch"
+                            styleClass="primary-button"/>
+
+                    <Button fx:id="resetButton"
+                            text="전체조회"
+                            onAction="#onReset"
+                            styleClass="secondary-button"/>
+                </HBox>
+            </VBox>
         </VBox>
     </top>
 
@@ -60,9 +60,9 @@
                 <Insets top="20" right="20" bottom="20" left="20"/>
             </padding>
 
-            <VBox spacing="18" styleClass="card-panel" prefWidth="360">
+            <VBox spacing="16" styleClass="card" prefWidth="340">
                 <padding>
-                    <Insets top="24" right="24" bottom="24" left="24"/>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
                 </padding>
 
                 <Label text="상품 정보 입력" styleClass="section-title"/>
@@ -74,14 +74,13 @@
                     <Label text="바코드" styleClass="field-label"/>
                     <TextField fx:id="barcodeField"
                                promptText="바코드를 입력 또는 스캔하세요"
-                               styleClass="pos-input"/>
+                               styleClass="code-input"/>
                 </VBox>
 
                 <VBox spacing="8">
                     <Label text="가격" styleClass="field-label"/>
                     <TextField fx:id="priceField"
-                               promptText="가격을 입력하세요"
-                               styleClass="pos-input"/>
+                               promptText="가격을 입력하세요"/>
                 </VBox>
 
                 <HBox spacing="10">
@@ -90,10 +89,8 @@
                             onAction="#onSave"
                             styleClass="primary-button"
                             prefHeight="46"
-                            maxWidth="1.7976931348623157E308"/>
-                    <HBox.hgrow>
-                        <Priority fx:constant="ALWAYS"/>
-                    </HBox.hgrow>
+                            maxWidth="Infinity"
+                            HBox.hgrow="ALWAYS"/>
 
                     <Button fx:id="cancelEditButton"
                             text="취소"
@@ -109,9 +106,9 @@
                        styleClass="message-label"/>
             </VBox>
 
-            <VBox spacing="16" styleClass="card-panel">
+            <VBox spacing="16" styleClass="card">
                 <padding>
-                    <Insets top="24" right="24" bottom="24" left="24"/>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
                 </padding>
                 <HBox.hgrow>
                     <Priority fx:constant="ALWAYS"/>
@@ -124,7 +121,7 @@
                     </VBox>
                 </HBox>
 
-                <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="product-table">
+                <TableView fx:id="productTable" VBox.vgrow="ALWAYS" >
                     <columns>
                         <TableColumn fx:id="idColumn" text="ID" prefWidth="90"/>
                         <TableColumn fx:id="barcodeColumn" text="상품코드" prefWidth="300"/>

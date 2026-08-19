@@ -1,49 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.l7pos.l7_pos.controller.SaleController"
-            prefWidth="1000"
-            prefHeight="700">
+            styleClass="page">
 
     <top>
-        <VBox spacing="12" style="-fx-padding: 15;">
-            <Label text="판매 등록"
-                   style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+        <VBox spacing="14">
+            <padding>
+                <Insets top="20" right="20" bottom="4" left="20"/>
+            </padding>
 
-            <HBox spacing="10">
-                <Label text="판매번호"/>
-                <TextField fx:id="saleNoField"
-                           editable="false"
-                           prefWidth="220"/>
+            <VBox spacing="3">
+                <Label text="판매 등록" styleClass="page-title"/>
+                <Label text="바코드를 스캔하면 품목이 추가됩니다." styleClass="page-desc"/>
+            </VBox>
 
-                <Label text="바코드"/>
-                <TextField fx:id="barcodeField"
-                           prefWidth="320"
-                           promptText="바코드를 스캔 후 Enter"/>
+            <HBox spacing="14" alignment="CENTER_LEFT" styleClass="card">
+                <padding>
+                    <Insets top="16" right="18" bottom="16" left="18"/>
+                </padding>
 
-                <Region HBox.hgrow="ALWAYS"/>
+                <VBox spacing="6">
+                    <Label text="판매번호" styleClass="field-label"/>
+                    <TextField fx:id="saleNoField"
+                               editable="false"
+                               prefWidth="210"
+                               styleClass="code-input"/>
+                </VBox>
+
+                <Region styleClass="tool-divider"/>
+
+                <VBox spacing="6" HBox.hgrow="ALWAYS">
+                    <Label text="바코드" styleClass="field-label"/>
+                    <TextField fx:id="barcodeField"
+                               promptText="바코드를 스캔한 뒤 Enter"
+                               styleClass="code-input"
+                               maxWidth="Infinity"/>
+                </VBox>
 
                 <Button text="판매 등록"
                         onAction="#onRegisterSale"
-                        prefWidth="180"
-                        prefHeight="50"
-                        style="-fx-font-size: 20px;
-                               -fx-font-weight: bold;
-                               -fx-background-color: #2c3e50;
-                               -fx-text-fill: white;"/>
+                        styleClass="hero-button"
+                        prefWidth="170"
+                        prefHeight="52"/>
             </HBox>
         </VBox>
     </top>
 
     <center>
-        <VBox style="-fx-padding: 10;">
-            <TableView fx:id="saleTable"
-                       VBox.vgrow="ALWAYS"
-                       maxWidth="Infinity">
+        <VBox spacing="12" styleClass="card">
+            <padding>
+                <Insets top="16" right="16" bottom="16" left="16"/>
+            </padding>
+            <BorderPane.margin>
+                <Insets top="14" right="20" bottom="0" left="20"/>
+            </BorderPane.margin>
 
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="판매 품목" styleClass="section-title"/>
+
+                <Region HBox.hgrow="ALWAYS"/>
+
+                <Button text="선택 품목 삭제"
+                        onAction="#onDeleteSelected"
+                        styleClass="danger-button"/>
+
+                <Button text="새 판매"
+                        onAction="#onNewSale"
+                        styleClass="secondary-button"/>
+            </HBox>
+
+            <TableView fx:id="saleTable" VBox.vgrow="ALWAYS" maxWidth="Infinity">
                 <columns>
                     <TableColumn fx:id="barcodeColumn" text="바코드"/>
                     <TableColumn fx:id="productCodeColumn" text="품번"/>
@@ -58,43 +89,21 @@
     </center>
 
     <bottom>
-        <VBox spacing="12" style="-fx-padding: 15;">
-            <HBox spacing="10">
-                <Button text="선택 품목 삭제"
-                        onAction="#onDeleteSelected"
-                        prefWidth="140"
-                        prefHeight="40"
-                        style="-fx-font-size: 14px;
-                               -fx-font-weight: bold;
-                               -fx-background-color: #e74c3c;
-                               -fx-text-fill: white;"/>
+        <HBox spacing="14" alignment="CENTER_RIGHT">
+            <padding>
+                <Insets top="16" right="20" bottom="20" left="20"/>
+            </padding>
 
-                <Button text="새 판매"
-                        onAction="#onNewSale"
-                        prefWidth="100"
-                        prefHeight="40"/>
+            <HBox spacing="14" alignment="CENTER_LEFT" styleClass="stat-box">
+                <Label text="총 수량" styleClass="stat-label"/>
+                <Label fx:id="totalQuantityLabel" text="0개" styleClass="stat-value"/>
             </HBox>
 
-            <HBox spacing="40">
-                <HBox spacing="10">
-                    <Label text="총 수량"
-                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
-
-                    <Label fx:id="totalQuantityLabel"
-                           text="0개"
-                           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
-                </HBox>
-
-                <HBox spacing="10">
-                    <Label text="총 금액"
-                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
-
-                    <Label fx:id="totalAmountLabel"
-                           text="0원"
-                           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
-                </HBox>
+            <HBox spacing="14" alignment="CENTER_LEFT" styleClass="stat-box, stat-box-primary">
+                <Label text="총 금액" styleClass="stat-label"/>
+                <Label fx:id="totalAmountLabel" text="0원" styleClass="stat-value"/>
             </HBox>
-        </VBox>
+        </HBox>
     </bottom>
 
 </BorderPane>

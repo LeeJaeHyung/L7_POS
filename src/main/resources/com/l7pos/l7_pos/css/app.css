@@ -1,0 +1,673 @@
+/*
+ * L7 POS 공통 스타일
+ *
+ * 색상은 흰색과 파란색 계열로 통일한다.
+ *   파랑  #2563EB (기본) / #1D4ED8 (호버) / #1E40AF (클릭)
+ *   남색  #1E3A8A (헤더)
+ *   배경  #F4F7FE (아주 옅은 파랑)
+ *   면    #FFFFFF
+ *   테두리 #E2E8F0
+ *   글자  #0F172A (본문) / #64748B (보조)
+ *
+ * 삭제 같은 되돌릴 수 없는 동작만 빨강을 쓰되,
+ * 배경은 흰색으로 두고 테두리와 글자만 빨강으로 해서
+ * 전체 톤이 흐트러지지 않게 한다.
+ */
+
+.root {
+    -fx-font-family: "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.root-pane {
+    -fx-background-color: #F4F7FE;
+}
+
+
+/* ===== 상단 바 ===== */
+
+.app-header {
+    -fx-background-color: linear-gradient(to right, #1E3A8A, #2563EB);
+}
+
+.app-logo {
+    -fx-text-fill: white;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.app-header-divider {
+    -fx-background-color: rgba(255, 255, 255, 0.35);
+    -fx-min-width: 1;
+    -fx-min-height: 18;
+}
+
+.app-header-caption {
+    -fx-text-fill: #DBEAFE;
+    -fx-font-size: 13px;
+}
+
+
+/* ===== 좌측 메뉴 ===== */
+
+.side-nav {
+    -fx-background-color: white;
+    -fx-border-color: transparent #E2E8F0 transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.side-nav-caption {
+    -fx-text-fill: #94A3B8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #334155;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 10;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 11 14 11 14;
+    -fx-cursor: hand;
+}
+
+.nav-button:hover {
+    -fx-background-color: #EFF6FF;
+    -fx-text-fill: #1D4ED8;
+}
+
+.nav-button:pressed {
+    -fx-background-color: #DBEAFE;
+}
+
+/* 현재 보고 있는 메뉴 */
+.nav-button-active {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+}
+
+.nav-button-active:hover {
+    -fx-background-color: #1D4ED8;
+    -fx-text-fill: white;
+}
+
+
+/* ===== 본문 / 카드 ===== */
+
+.page {
+    -fx-background-color: #F4F7FE;
+}
+
+.page-title {
+    -fx-text-fill: #0F172A;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.page-desc {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 13px;
+}
+
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1;
+}
+
+.section-title {
+    -fx-text-fill: #0F172A;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.section-desc {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 12px;
+}
+
+.field-label {
+    -fx-text-fill: #334155;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.separator *.line {
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1 0 0 0;
+}
+
+
+/* ===== 입력 ===== */
+
+.text-input,
+.text-field {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-background-radius: 9;
+    -fx-border-radius: 9;
+    -fx-font-size: 14px;
+    -fx-text-fill: #0F172A;
+    -fx-prompt-text-fill: #94A3B8;
+    -fx-padding: 0 12 0 12;
+    -fx-pref-height: 38;
+}
+
+.text-field:focused {
+    -fx-background-color: white;
+    -fx-border-color: #2563EB;
+    -fx-border-width: 2;
+}
+
+.text-field:disabled,
+.text-field:readonly {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #64748B;
+}
+
+/* 바코드처럼 코드값을 넣는 칸은 폭이 고른 글꼴이 읽기 좋다 */
+.code-input {
+    -fx-font-family: "Menlo", "Consolas", monospace;
+    -fx-font-size: 14px;
+}
+
+/*
+ * 날짜 선택
+ *
+ * 기본 DatePicker 는 텍스트칸과 달력 버튼이 각각 테두리를 가져서
+ * 가운데 이음새가 보이고 포커스도 텍스트칸에만 잡힌다.
+ * 바깥 컨테이너에만 테두리를 주고 내부는 투명하게 해서
+ * 하나의 입력칸처럼 보이게 한다.
+ */
+.date-picker {
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 9;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+    -fx-pref-height: 38;
+}
+
+.date-picker:hover {
+    -fx-border-color: #94A3B8;
+}
+
+/* 안쪽 텍스트칸은 테두리와 배경을 없앤다 */
+.date-picker > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-font-size: 14px;
+    -fx-text-fill: #0F172A;
+    -fx-padding: 0 4 0 12;
+}
+
+.date-picker > .text-field:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+/* 포커스 테두리는 컨트롤 전체에 준다 */
+.date-picker:focused,
+.date-picker:focus-within {
+    -fx-background-color: white;
+    -fx-border-color: #2563EB;
+    -fx-border-width: 2;
+}
+
+/* 달력 버튼: 이음새 없이 아이콘만 */
+.date-picker > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0 9 9 0;
+    -fx-padding: 0 12 0 8;
+    -fx-cursor: hand;
+}
+
+.date-picker > .arrow-button:hover {
+    -fx-background-color: #EFF6FF;
+}
+
+.date-picker > .arrow-button > .arrow {
+    -fx-background-color: #2563EB;
+    -fx-background-insets: 0;
+    -fx-padding: 0.5em;
+}
+
+/* ----- 달력 팝업 ----- */
+
+.date-picker-popup {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-color: #DBEAFE;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-padding: 4;
+}
+
+.date-picker-popup > .month-year-pane {
+    -fx-background-color: #EFF6FF;
+    -fx-background-radius: 10 10 0 0;
+    -fx-padding: 8 10 8 10;
+}
+
+.date-picker-popup > .month-year-pane .label {
+    -fx-text-fill: #1E3A8A;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.date-picker-popup > .month-year-pane > .spinner > .button {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 4;
+}
+
+.date-picker-popup > .month-year-pane > .spinner > .button:hover {
+    -fx-background-color: #DBEAFE;
+    -fx-background-radius: 6;
+}
+
+.date-picker-popup > .month-year-pane > .spinner > .button > .left-arrow,
+.date-picker-popup > .month-year-pane > .spinner > .button > .right-arrow {
+    -fx-background-color: #1D4ED8;
+}
+
+/* 요일 머리글 */
+.date-picker-popup .calendar-grid {
+    -fx-background-color: white;
+}
+
+.date-picker-popup > * > .day-name-cell {
+    -fx-background-color: white;
+    -fx-text-fill: #64748B;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+/* 날짜 칸 */
+.date-picker-popup > * > .day-cell {
+    -fx-background-color: white;
+    -fx-border-color: transparent;
+    -fx-text-fill: #0F172A;
+    -fx-font-size: 13px;
+    -fx-background-radius: 8;
+    -fx-padding: 6;
+    -fx-cursor: hand;
+}
+
+.date-picker-popup > * > .day-cell:hover {
+    -fx-background-color: #EFF6FF;
+}
+
+/* 지난달 / 다음달 날짜는 흐리게 */
+.date-picker-popup > * > .day-cell.next-month,
+.date-picker-popup > * > .day-cell.previous-month {
+    -fx-text-fill: #CBD5E1;
+}
+
+/* 오늘 */
+.date-picker-popup > * > .today {
+    -fx-background-color: #DBEAFE;
+    -fx-text-fill: #1E3A8A;
+    -fx-font-weight: bold;
+}
+
+/* 선택한 날짜 */
+.date-picker-popup > * > .day-cell:selected,
+.date-picker-popup > * > .selected,
+.date-picker-popup > * > .today:selected {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+
+/* ===== 버튼 ===== */
+
+.button {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 9;
+    -fx-cursor: hand;
+    -fx-padding: 9 16 9 16;
+}
+
+.primary-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+}
+
+.primary-button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.primary-button:pressed {
+    -fx-background-color: #1E40AF;
+}
+
+/* 흰 바탕에 파란 테두리 */
+.secondary-button {
+    -fx-background-color: white;
+    -fx-text-fill: #1D4ED8;
+    -fx-border-color: #BFDBFE;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #EFF6FF;
+    -fx-border-color: #2563EB;
+}
+
+.secondary-button:pressed {
+    -fx-background-color: #DBEAFE;
+}
+
+/* 테두리 없는 보조 동작 */
+.ghost-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #475569;
+}
+
+.ghost-button:hover {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+}
+
+/* 삭제처럼 되돌릴 수 없는 동작 */
+.danger-button {
+    -fx-background-color: white;
+    -fx-text-fill: #DC2626;
+    -fx-border-color: #FECACA;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+}
+
+.danger-button:hover {
+    -fx-background-color: #FEF2F2;
+    -fx-border-color: #DC2626;
+}
+
+.danger-button:pressed {
+    -fx-background-color: #FEE2E2;
+}
+
+/* 판매 등록처럼 화면의 주 동작 */
+.hero-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 11;
+}
+
+.hero-button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.hero-button:pressed {
+    -fx-background-color: #1E40AF;
+}
+
+
+/* ===== 표 ===== */
+
+.table-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-padding: 0;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #EFF6FF;
+    -fx-background-radius: 11 11 0 0;
+}
+
+.table-view .column-header,
+.table-view .filler {
+    -fx-background-color: transparent;
+    -fx-size: 40;
+    -fx-border-color: transparent transparent #DBEAFE transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #1E3A8A;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: white;
+    -fx-border-color: transparent transparent #F1F5F9 transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-cell-size: 38;
+}
+
+.table-view .table-row-cell:odd {
+    -fx-background-color: #FBFDFF;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: #F1F7FF;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #DBEAFE;
+}
+
+.table-view .table-row-cell:selected .table-cell {
+    -fx-text-fill: #1E3A8A;
+    -fx-font-weight: bold;
+}
+
+.table-view .table-cell {
+    -fx-font-size: 13px;
+    -fx-text-fill: #1F2937;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent;
+    -fx-padding: 0 10 0 10;
+}
+
+.table-view .placeholder .label {
+    -fx-text-fill: #94A3B8;
+    -fx-font-size: 13px;
+}
+
+/* 표 안의 작은 버튼 */
+.table-edit-button {
+    -fx-background-color: #EFF6FF;
+    -fx-text-fill: #1D4ED8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 7;
+    -fx-cursor: hand;
+    -fx-padding: 5 12 5 12;
+}
+
+.table-edit-button:hover {
+    -fx-background-color: #DBEAFE;
+}
+
+.table-delete-button {
+    -fx-background-color: white;
+    -fx-text-fill: #DC2626;
+    -fx-border-color: #FECACA;
+    -fx-border-width: 1;
+    -fx-border-radius: 7;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 7;
+    -fx-cursor: hand;
+    -fx-padding: 5 12 5 12;
+}
+
+.table-delete-button:hover {
+    -fx-background-color: #FEF2F2;
+    -fx-border-color: #DC2626;
+}
+
+
+/* ===== 합계 표시 ===== */
+
+.stat-box {
+    -fx-background-color: #F8FAFF;
+    -fx-background-radius: 11;
+    -fx-border-radius: 11;
+    -fx-border-color: #DBEAFE;
+    -fx-border-width: 1;
+    -fx-padding: 10 18 10 18;
+}
+
+.stat-label {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.stat-value {
+    -fx-text-fill: #1E3A8A;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+/* 판매 화면의 총 금액처럼 가장 크게 보여야 하는 값 */
+.stat-box-primary {
+    -fx-background-color: #2563EB;
+    -fx-border-color: #2563EB;
+}
+
+.stat-box-primary .stat-label {
+    -fx-text-fill: #DBEAFE;
+}
+
+.stat-box-primary .stat-value {
+    -fx-text-fill: white;
+    -fx-font-size: 24px;
+}
+
+/* 품번 검색 결과 요약 */
+.result-badge {
+    -fx-background-color: #EFF6FF;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-border-color: #BFDBFE;
+    -fx-border-width: 1;
+    -fx-text-fill: #1D4ED8;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 14 6 14;
+}
+
+
+/* ===== 안내 문구 ===== */
+
+.message-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #475569;
+}
+
+.message-success {
+    -fx-text-fill: #1D4ED8;
+}
+
+.message-error {
+    -fx-text-fill: #DC2626;
+}
+
+
+/* ===== 구분선 / 스크롤 / 분할 ===== */
+
+.tool-divider {
+    -fx-background-color: #E2E8F0;
+    -fx-min-width: 1;
+    -fx-min-height: 22;
+}
+
+.split-pane {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 0 0;
+    -fx-pref-height: 10;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #CBD5E1;
+    -fx-background-radius: 8;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #94A3B8;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button,
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+}
+
+.corner {
+    -fx-background-color: transparent;
+}
+
+
+/* ===== 팝업(확인/알림) ===== */
+
+.dialog-pane {
+    -fx-background-color: white;
+}
+
+.dialog-pane .button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+}
+
+.dialog-pane .button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.dialog-pane .button:cancel-button {
+    -fx-background-color: white;
+    -fx-text-fill: #475569;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+}
+
+.dialog-pane .button:cancel-button:hover {
+    -fx-background-color: #F1F5F9;
+}
+
+.tooltip {
+    -fx-background-color: #1E3A8A;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-background-radius: 8;
+    -fx-padding: 8 12 8 12;
+}

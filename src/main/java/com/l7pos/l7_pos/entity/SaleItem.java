@@ -2,6 +2,8 @@ package com.l7pos.l7_pos.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "sale_item")
 public class SaleItem {
@@ -36,6 +38,15 @@ public class SaleItem {
     @Column(name = "amount", nullable = false)
     private int amount;
 
+    /**
+     * 삭제 시각. null 이면 살아있는 품목이다.
+     *
+     * 판매 기록은 지우지 않고 표시만 남긴다.
+     * 언제 무엇을 뺐는지 나중에 확인할 수 있어야 하기 때문이다.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     public SaleItem() {}
 
     public SaleItem(String barcode,
@@ -55,6 +66,10 @@ public class SaleItem {
 
     public void setSale(Sale sale) {
         this.sale = sale;
+    }
+
+    public Sale getSale() {
+        return sale;
     }
 
     public Long getSaleItemId() {
@@ -87,5 +102,17 @@ public class SaleItem {
 
     public int getAmount() {
         return amount;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public void softDelete(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }

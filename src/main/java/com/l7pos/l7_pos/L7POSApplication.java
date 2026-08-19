@@ -21,7 +21,28 @@ public class L7POSApplication extends Application {
         );
 
         Parent root = loader.load();
-        Scene scene = new Scene(root, 1000, 700);
+
+        /*
+         * 창 크기
+         *
+         * 상품 관리 화면이 1150px 가 필요하고 좌측 메뉴가 184px 이라
+         * 기존 1000px 로는 내용이 잘렸다.
+         */
+        Scene scene = new Scene(root, 1440, 880);
+
+        /*
+         * 공통 스타일시트
+         *
+         * Scene 에 한 번만 붙이면 나중에 갈아 끼우는 화면들에도 그대로 적용된다.
+         */
+        URL stylesheet = getClass().getResource("/com/l7pos/l7_pos/css/app.css");
+
+        if (stylesheet != null) {
+            scene.getStylesheets().add(stylesheet.toExternalForm());
+        } else {
+            System.err.println("스타일시트를 찾을 수 없습니다: /com/l7pos/l7_pos/css/app.css");
+        }
+
         stage.getIcons().add(
                 new javafx.scene.image.Image(
                         Objects.requireNonNull(
@@ -31,6 +52,8 @@ public class L7POSApplication extends Application {
         );
         stage.setTitle("L7 POS");
         stage.setScene(scene);
+        stage.setMinWidth(1180);
+        stage.setMinHeight(720);
         stage.show();
     }
 }

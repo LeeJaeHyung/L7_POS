@@ -4,6 +4,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
@@ -17,8 +18,20 @@ public class MainController {
     @FXML
     private StackPane contentArea;
 
+    @FXML
+    private Button saleNavButton;
+
+    @FXML
+    private Button salesHistoryNavButton;
+
+    @FXML
+    private Button productNavButton;
+
     private String currentPagePath;
     private boolean loading = false;
+
+    /** 현재 보고 있는 메뉴를 표시할 때 쓰는 스타일 */
+    private static final String ACTIVE_NAV_STYLE_CLASS = "nav-button-active";
 
     @FXML
     public void initialize() {
@@ -33,16 +46,36 @@ public class MainController {
     @FXML
     public void goSale() {
         loadPageSafely("/com/l7pos/l7_pos/sale-view.fxml", "판매 페이지");
+        markActiveNav(saleNavButton);
     }
 
     @FXML
     public void goSalesHistory() {
         loadPageSafely("/com/l7pos/l7_pos/sales-history-view.fxml", "판매 조회 페이지");
+        markActiveNav(salesHistoryNavButton);
     }
 
     @FXML
     public void goPriceSetting() {
         loadPageSafely("/com/l7pos/l7_pos/ProductRegisterView.fxml", "가격 설정 페이지");
+        markActiveNav(productNavButton);
+    }
+
+    /**
+     * 지금 보고 있는 메뉴만 파랗게 칠한다.
+     */
+    private void markActiveNav(Button activeButton) {
+        for (Button navButton : new Button[]{saleNavButton, salesHistoryNavButton, productNavButton}) {
+            if (navButton == null) {
+                continue;
+            }
+
+            navButton.getStyleClass().remove(ACTIVE_NAV_STYLE_CLASS);
+
+            if (navButton == activeButton) {
+                navButton.getStyleClass().add(ACTIVE_NAV_STYLE_CLASS);
+            }
+        }
     }
 
     private void loadPageSafely(String fxmlPath, String pageName) {
